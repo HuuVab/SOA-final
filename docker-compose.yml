@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  # User Authentication Service
+  user-service:
+    build: ./user-service
+    container_name: ecommerce-user-service
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://ecommerceuser:Tem060704@ac-gb7gz7p-shard-00-00.drqwdfu.mongodb.net:27017,ac-gb7gz7p-shard-00-01.drqwdfu.mongodb.net:27017,ac-gb7gz7p-shard-00-02.drqwdfu.mongodb.net:27017/?replicaSet=atlas-89gp7p-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=ecommerce-cluster
+      - SECRET_KEY=dev_secret_key
+      - JWT_EXPIRATION=3600
+      - PORT=5000
+    volumes:
+      - ./user-service:/app
+    command: flask run --host=0.0.0.0 --port=5000
+
+# No network or volumes sections needed with just one service
