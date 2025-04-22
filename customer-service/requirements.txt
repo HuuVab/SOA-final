@@ -1,8 +1,5 @@
-Flask
-Flask-Bcrypt
-pymongo
-PyJWT
-gunicorn
-python-dotenv
-email-validator
+flask
+flask-cors
 requests
+pyjwt
+python-dotenv
