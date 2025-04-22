@@ -34,23 +34,6 @@ services:
     depends_on:
       - database-service
 
-  seller-service:
-    build: ./seller-service
-    container_name: ecommerce-seller-service
-    restart: always
-    ports:
-      - "5001:5001"
-    environment:
-      - MONGO_URI=mongodb://ecommerceuser:Tem060704@ac-gb7gz7p-shard-00-00.drqwdfu.mongodb.net:27017,ac-gb7gz7p-shard-00-01.drqwdfu.mongodb.net:27017,ac-gb7gz7p-shard-00-02.drqwdfu.mongodb.net:27017/?replicaSet=atlas-89gp7p-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=ecommerce-cluster
-      - SECRET_KEY=dev_secret_key
-      - JWT_EXPIRATION=3600
-      - PORT=5001
-    volumes:
-      - ./seller-service:/app
-    networks:
-      - ecommerce-network
-    command: flask run --host=0.0.0.0 --port=5001
-
   email-service:
     build:
       context: ./email-service
@@ -94,6 +77,24 @@ services:
     networks:
       - ecommerce-network
     restart: unless-stopped
+  # Add this to your existing docker-compose.yml file
+  homepage-service:
+    build: ./homepage-service
+    container_name: ecommerce-homepage-service
+    restart: always
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - DB_SERVICE_URL=http://database-service:5003/api
+      - CUSTOMER_SERVICE_URL=http://customer-service:5000
+    volumes:
+      - ./homepage-service:/app
+    networks:
+      - ecommerce-network
+    depends_on:
+      - database-service
+      - customer-service
 
 networks:
   ecommerce-network:

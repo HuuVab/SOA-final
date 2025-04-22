@@ -33,9 +33,9 @@ app.config['API_KEY'] = os.environ.get('EMAIL_SERVICE_API_KEY', 'email_service_a
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
-app.config['MAIL_USERNAME'] = 'huuvan060704@gmail.com'
-app.config['MAIL_PASSWORD'] = 'myfq egnc sqko juuu'
-app.config['MAIL_DEFAULT_SENDER'] = 'huuvan060704@gmail.com'
+app.config['MAIL_USERNAME'] = 'mrbeast6969gaming@gmail.com'
+app.config['MAIL_PASSWORD'] = 'yboo jclj ggli vflr'
+app.config['MAIL_DEFAULT_SENDER'] = 'mrbeast6969gaming@gmail.com'
 
 # Redis for rate limiting and storing verification codes
 redis_host = os.environ.get('REDIS_HOST', 'localhost')

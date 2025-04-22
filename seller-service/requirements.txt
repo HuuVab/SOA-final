@@ -1,5 +1,0 @@
-Flask
-Flask-Bcrypt
-PyJWT
-pymongo
-gunicorn
