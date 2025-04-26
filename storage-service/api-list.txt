@@ -1,0 +1,20 @@
+Endpoint: GET /api/products
+Description: Retrieves all products stored in the database
+
+Endpoint: GET /api/products/<product_id>
+Input: Product ID in URL path
+Description: Retrieves a specific product by its ID
+
+Endpoint: PUT /api/products/<product_id>
+Description: Updates fields of an existing product
+
+DELETE /api/products/<product_id>
+Input: Product ID in URL path
+Description: Deletes a product from the database
+
+Endpoint: GET /api/products/search?q=<query>
+Input: Search query as URL parameter
+Description: Searches for products by name or description
+
+Endpoint: GET /api/health
+Description: Service health check endpoint that also verifies connection to the database service

@@ -95,7 +95,63 @@ services:
     depends_on:
       - database-service
       - customer-service
+  storage-service:
+    build: ./storage-service
+    container_name: ecommerce-storage-service
+    restart: always
+    ports:
+      - "5005:5005"
+    environment:
+      - PORT=5005
+      - DB_SERVICE_URL=http://database-service:5003/api
+      - DB_NAME=/data/storage.sqlite
+      - FLASK_DEBUG=false
+    volumes:
+      - ./storage-service:/app
+    networks:
+      - ecommerce-network
+    depends_on:
+      - database-service
+  # Promotion Service
+  promotion-service:
+    build: ./promotion-service
+    container_name: ecommerce-promotion-service
+    restart: always
+    ports:
+      - "5006:5006"
+    environment:
+      - PORT=5006
+      - DB_SERVICE_URL=http://database-service:5003/api
+      - DB_NAME=/data/promotion.sqlite
+      - STORAGE_DB_NAME=/data/storage.sqlite
+      - FLASK_DEBUG=false
+    volumes:
+      - ./promotion-service:/app
+    networks:
+      - ecommerce-network
+    depends_on:
+      - database-service
+      - storage-service
 
+  # Media Service
+  media-service:
+    build: ./media-service
+    container_name: ecommerce-media-service
+    restart: always
+    ports:
+      - "5007:5007"
+    environment:
+      - PORT=5007
+      - DB_SERVICE_URL=http://database-service:5003/api
+      - DB_NAME=/data/media.sqlite
+      - FLASK_DEBUG=false
+    volumes:
+      - ./media-service:/app
+      - ./media:/media
+    networks:
+      - ecommerce-network
+    depends_on:
+      - database-service
 networks:
   ecommerce-network:
     driver: bridge

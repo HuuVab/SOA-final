@@ -1,0 +1,8 @@
+Endpoint: POST /api/connect
+Description: Establishes a connection to the specified
+
+Endpoint: POST /api/disconnect
+Description: Closes the current database connection
+
+Endpoint: POST /api/execute
+Description: Executes a custom SQL query with optional

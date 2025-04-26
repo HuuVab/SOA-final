@@ -1,0 +1,8 @@
+    product_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    description TEXT,
+    stock_quantity INTEGER DEFAULT 0,
+    image_url TEXT,
+    created_at TEXT,
+    updated_at TEXT
