@@ -152,6 +152,30 @@ services:
       - ecommerce-network
     depends_on:
       - database-service
+
+  # Cart Service
+  cart-service:
+    build: ./cart-service
+    container_name: ecommerce-cart-service
+    restart: always
+    ports:
+      - "5008:5008"  # Changed from 5007 to avoid conflict with media-service
+    environment:
+      - PORT=5008
+      - DB_SERVICE_URL=http://database-service:5003/api  # Changed from db-service to database-service
+      - CUSTOMER_SERVICE_URL=http://customer-service:5000/api
+      - PRODUCT_SERVICE_URL=http://storage-service:5005/api  # Changed from product-service to storage-service
+      - PROMOTION_SERVICE_URL=http://promotion-service:5006/api
+      - FLASK_DEBUG=false
+    volumes:
+      - ./cart-service:/app
+    networks:
+      - ecommerce-network
+    depends_on:
+      - database-service
+      - customer-service
+      - storage-service
+      - promotion-service
 networks:
   ecommerce-network:
     driver: bridge
