@@ -34,7 +34,7 @@ def initialize_cart_tables():
         # Connect to database
         connect_response = requests.post(
             f"{DB_SERVICE_URL}/connect",
-            json={"db_name": "cart.sqlite"}
+            json={"db_name": "/data/cart.sqlite"}
         )
         
         logger.info(f"Database connection: {connect_response.json()}")

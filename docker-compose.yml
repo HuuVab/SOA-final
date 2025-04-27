@@ -26,6 +26,7 @@ services:
       - EMAIL_SERVICE_URL=http://email-service:5002
       - EMAIL_SERVICE_API_KEY=${EMAIL_SERVICE_API_KEY:-email_service_api_key}
       - AUTH_SERVICE_BASE_URL=${AUTH_SERVICE_BASE_URL:-http://localhost:5000}
+      - DB_NAME=/data/customer.sqlite
     volumes:
       - ./customer-service:/app
     networks:
@@ -144,6 +145,7 @@ services:
       - PORT=5007
       - DB_SERVICE_URL=http://database-service:5003/api
       - DB_NAME=/data/media.sqlite
+      - MEDIA_DB_NAME=/data/media.sqlite
       - FLASK_DEBUG=false
     volumes:
       - ./media-service:/app
@@ -159,16 +161,18 @@ services:
     container_name: ecommerce-cart-service
     restart: always
     ports:
-      - "5008:5008"  # Changed from 5007 to avoid conflict with media-service
+      - "5008:5008"  # Using port 5008 to avoid conflict with media-service
     environment:
       - PORT=5008
-      - DB_SERVICE_URL=http://database-service:5003/api  # Changed from db-service to database-service
+      - DB_SERVICE_URL=http://database-service:5003/api
       - CUSTOMER_SERVICE_URL=http://customer-service:5000/api
-      - PRODUCT_SERVICE_URL=http://storage-service:5005/api  # Changed from product-service to storage-service
+      - PRODUCT_SERVICE_URL=http://storage-service:5005/api
       - PROMOTION_SERVICE_URL=http://promotion-service:5006/api
+      - DB_NAME=/data/cart.sqlite  # Add this explicit database name
       - FLASK_DEBUG=false
     volumes:
       - ./cart-service:/app
+      - ./data:/data  # Add this volume mapping to access the shared data directory
     networks:
       - ecommerce-network
     depends_on:

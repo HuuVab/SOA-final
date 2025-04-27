@@ -18,6 +18,8 @@ ENV DB_SERVICE_URL=http://db-service:5003/api
 ENV CUSTOMER_SERVICE_URL=http://customer-service:5000/api
 ENV PRODUCT_SERVICE_URL=http://product-service:5005/api
 ENV PROMOTION_SERVICE_URL=http://promotion-service:5006/api
+ENV DB_NAME=/data/cart.sqlite
+ENV CART_DB_NAME=/data/cart.sqlite
 
 # Run the application
 CMD ["python", "app.py"]

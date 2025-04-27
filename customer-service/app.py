@@ -26,6 +26,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Configuration
 DB_SERVICE_URL = os.environ.get('DB_SERVICE_URL', 'http://localhost:5003/api')
+DB_NAME = os.environ.get('DB_NAME', '/data/customer.sqlite')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')  # In production, use a secure secret
 JWT_EXPIRATION = int(os.environ.get('JWT_EXPIRATION', 86400))  # 24 hours in seconds
 
@@ -41,7 +42,7 @@ def initialize_customer_table():
         # Check if the customers table exists
         connect_response = requests.post(
             f"{DB_SERVICE_URL}/connect",
-            json={"db_name": "customer.sqlite"}
+            json={"db_name": DB_NAME}  # Use the environment variable
         )
         
         logger.info(f"Database connection: {connect_response.json()}")
