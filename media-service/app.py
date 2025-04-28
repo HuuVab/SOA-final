@@ -11,6 +11,12 @@ from datetime import datetime
 import json
 import re
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+import os
+import mimetypes
+from pathlib import Path
+import shutil
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +27,15 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+UPLOAD_FOLDER = '/data/media'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'}
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload size
+
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', UPLOAD_FOLDER)
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', MAX_CONTENT_LENGTH))
+
+
 
 class MediaService:
     def __init__(self, db_service_url=None, db_name=None):
@@ -62,6 +77,108 @@ class MediaService:
         except Exception as e:
             logger.error(f"Error connecting to database service: {e}")
             return False
+
+    def allowed_file(self, filename):
+        """Check if a filename has an allowed extension"""
+        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+    def generate_media_path(self, article_id, filename):
+        """Generate a unique filepath for an uploaded image"""
+        # Secure the filename to prevent directory traversal attacks
+        filename = secure_filename(filename)
+        
+        # Get file extension
+        _, ext = os.path.splitext(filename)
+        
+        # Generate a unique filename using uuid
+        unique_filename = f"{str(uuid.uuid4())}{ext}"
+        
+        # Create year/month directory structure
+        today = datetime.now()
+        year_month = f"{today.year}/{today.month:02d}"
+        
+        # Construct directory path under article_id
+        rel_directory = f"articles/{article_id}/{year_month}"
+        abs_directory = os.path.join(app.config['UPLOAD_FOLDER'], rel_directory)
+        
+        # Create directories if they don't exist
+        os.makedirs(abs_directory, exist_ok=True)
+        
+        # Construct full path
+        rel_path = f"{rel_directory}/{unique_filename}"
+        abs_path = os.path.join(app.config['UPLOAD_FOLDER'], rel_path)
+        
+        return {
+            'filename': unique_filename,
+            'original_filename': filename,
+            'relative_path': rel_path,
+            'absolute_path': abs_path
+        }
+
+    def handle_image_upload(self, file, article_id):
+        """Handle an image file upload"""
+        try:
+            if not self.initialized:
+                self.connect_to_db()
+                if self.initialized:
+                    self.init_tables()
+            
+            if not file or file.filename == '':
+                return {
+                    "status": "error",
+                    "message": "No file selected"
+                }
+            
+            if not self.allowed_file(file.filename):
+                return {
+                    "status": "error",
+                    "message": f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+                }
+            
+            # Generate file path
+            path_info = self.generate_media_path(article_id, file.filename)
+            
+            # Save the file
+            file.save(path_info['absolute_path'])
+            
+            # Get file size
+            file_size = os.path.getsize(path_info['absolute_path'])
+            
+            # Try to determine dimensions for images
+            width = None
+            height = None
+            
+            # Determine mime type
+            mime_type = mimetypes.guess_type(path_info['absolute_path'])[0]
+            
+            # Create image metadata
+            image_data = {
+                'image_id': str(uuid.uuid4()),
+                'article_id': article_id,
+                'filename': path_info['original_filename'],
+                'path': path_info['relative_path'],
+                'alt_text': path_info['original_filename'],  # Default alt text
+                'size_kb': file_size // 1024,
+                'mime_type': mime_type,
+                'width': width,
+                'height': height,
+                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            # Add image metadata to database
+            result = self.add_image(image_data)
+            
+            if result['status'] == 'success':
+                return result
+            else:
+                # If database insert failed, clean up the file
+                if os.path.exists(path_info['absolute_path']):
+                    os.remove(path_info['absolute_path'])
+                return result
+            
+        except Exception as e:
+            logger.error(f"Error handling image upload: {e}")
+            return {"status": "error", "message": str(e)}
 
     def init_tables(self):
         """Initialize the required tables if they don't exist"""
@@ -920,7 +1037,7 @@ class MediaService:
             return {"status": "error", "message": str(e)}
     
     def delete_image(self, image_id):
-        """Delete an image"""
+        """Delete an image and its file from the filesystem"""
         try:
             if not self.initialized:
                 self.connect_to_db()
@@ -932,8 +1049,10 @@ class MediaService:
             if check_result['status'] == 'error':
                 return check_result
             
-            # Check if this is a featured image for any article
+            # Get the image data for file deletion
             image_data = check_result['data']
+            
+            # Check if this is a featured image for any article
             if image_data.get('article_id'):
                 # Check if this is the featured image
                 article_url = f"{self.db_service_url}/tables/articles/data"
@@ -955,7 +1074,27 @@ class MediaService:
                         }
                         requests.put(update_url, json=update_payload)
             
-            # Delete the image
+            # Delete the image file from filesystem
+            if image_data.get('path'):
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], image_data['path'])
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    
+                    # Try to clean up empty directories
+                    dir_path = os.path.dirname(file_path)
+                    try:
+                        # Remove directory if empty
+                        if len(os.listdir(dir_path)) == 0:
+                            os.rmdir(dir_path)
+                            
+                            # Try to remove parent directory if empty
+                            parent_dir = os.path.dirname(dir_path)
+                            if len(os.listdir(parent_dir)) == 0:
+                                os.rmdir(parent_dir)
+                    except Exception as e:
+                        logger.warning(f"Error cleaning up directories: {e}")
+            
+            # Delete the image metadata
             url = f"{self.db_service_url}/tables/images/data"
             payload = {
                 "condition": "image_id = ?",
@@ -972,15 +1111,38 @@ class MediaService:
             else:
                 return {
                     "status": "error",
-                    "message": f"Error deleting image: {response.text}"
+                    "message": f"Error deleting image metadata: {response.text}"
                 }
         except Exception as e:
             logger.error(f"Error deleting image {image_id}: {e}")
             return {"status": "error", "message": str(e)}
     
     def _remove_all_images_from_article(self, article_id):
-        """Remove all images associated with an article"""
+        """Remove all images associated with an article, including files"""
         try:
+            # First, get all images for this article
+            images_result = self.get_article_images(article_id)
+            
+            if images_result['status'] == 'success' and images_result['data']:
+                # Delete each image file
+                for image in images_result['data']:
+                    if image.get('path'):
+                        file_path = os.path.join(app.config['UPLOAD_FOLDER'], image['path'])
+                        if os.path.exists(file_path):
+                            try:
+                                os.remove(file_path)
+                            except Exception as e:
+                                logger.warning(f"Error removing file {file_path}: {e}")
+                
+                # Try to clean up the article directory
+                try:
+                    article_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"articles/{article_id}")
+                    if os.path.exists(article_dir):
+                        shutil.rmtree(article_dir, ignore_errors=True)
+                except Exception as e:
+                    logger.warning(f"Error removing article directory: {e}")
+            
+            # Delete all image records from database
             url = f"{self.db_service_url}/tables/images/data"
             payload = {
                 "condition": "article_id = ?",
@@ -1387,6 +1549,83 @@ def get_image(image_id):
     except Exception as e:
         logger.error(f"Error in get_image route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/articles/<article_id>/images/upload', methods=['POST'])
+def upload_image(article_id):
+    """Upload an image for an article"""
+    try:
+        # Check if article exists
+        article_check = media_service.get_article(article_id)
+        if article_check['status'] == 'error':
+            return jsonify({"status": "error", "message": f"Article {article_id} not found"}), 404
+        
+        # Check if file is in request
+        if 'file' not in request.files:
+            return jsonify({"status": "error", "message": "No file part in the request"}), 400
+        
+        file = request.files['file']
+        result = media_service.handle_image_upload(file, article_id)
+        
+        if result['status'] == 'error':
+            return jsonify(result), 400
+        
+        return jsonify(result), 201
+    except Exception as e:
+        logger.error(f"Error in upload_image route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/articles/<article_id>/images/upload/multiple', methods=['POST'])
+def upload_multiple_images(article_id):
+    """Upload multiple images for an article"""
+    try:
+        # Check if article exists
+        article_check = media_service.get_article(article_id)
+        if article_check['status'] == 'error':
+            return jsonify({"status": "error", "message": f"Article {article_id} not found"}), 404
+        
+        # Check if files are in request
+        if 'files[]' not in request.files:
+            return jsonify({"status": "error", "message": "No files part in the request"}), 400
+        
+        files = request.files.getlist('files[]')
+        
+        if not files or len(files) == 0:
+            return jsonify({"status": "error", "message": "No files selected"}), 400
+        
+        results = []
+        success_count = 0
+        
+        for file in files:
+            result = media_service.handle_image_upload(file, article_id)
+            results.append(result)
+            if result['status'] == 'success':
+                success_count += 1
+        
+        # Check if any featured image is set for this article
+        if success_count > 0 and article_check['data'].get('featured_image_id') is None:
+            # Set the first successful uploaded image as featured
+            for result in results:
+                if result['status'] == 'success':
+                    media_service._set_featured_image(article_id, result['data']['image_id'])
+                    break
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Uploaded {success_count} of {len(files)} images successfully",
+            "results": results
+        }), 201
+    except Exception as e:
+        logger.error(f"Error in upload_multiple_images route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/media/serve/<path:filepath>', methods=['GET'])
+def serve_media(filepath):
+    """Serve media files - note: for development purposes only"""
+    try:
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filepath)
+    except Exception as e:
+        logger.error(f"Error serving media file {filepath}: {e}")
+        return jsonify({"status": "error", "message": "File not found"}), 404
 
 @app.route('/api/images', methods=['POST'])
 def add_image():

@@ -12,11 +12,11 @@ from email.mime.multipart import MIMEMultipart
 import os
 import json
 from functools import wraps
-import redis
 import time
 import random
 import string
-# No longer need requests library as we removed EngageLab API
+import requests
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -33,20 +33,72 @@ app.config['API_KEY'] = os.environ.get('EMAIL_SERVICE_API_KEY', 'email_service_a
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
-app.config['MAIL_USERNAME'] = 'mrbeast6969gaming@gmail.com'
-app.config['MAIL_PASSWORD'] = 'yboo jclj ggli vflr'
-app.config['MAIL_DEFAULT_SENDER'] = 'mrbeast6969gaming@gmail.com'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'mrbeast6969gaming@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'yboo jclj ggli vflr')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'mrbeast6969gaming@gmail.com')
 
-# Redis for rate limiting and storing verification codes
-redis_host = os.environ.get('REDIS_HOST', 'localhost')
-redis_port = int(os.environ.get('REDIS_PORT', 6379))
-try:
-    redis_client = redis.Redis(host=redis_host, port=redis_port, db=0)
-    redis_client.ping()  # Test connection
-    app.logger.info("Redis connection successful")
-except Exception as e:
-    app.logger.warning(f"Redis connection failed: {e}. Rate limiting will be disabled.")
-    redis_client = None
+# Database Service configuration
+DB_SERVICE_URL = os.environ.get('DB_SERVICE_URL', 'http://localhost:5003/api')
+
+# Initialize email database tables
+def initialize_email_tables():
+    """Initialize database tables for email service"""
+    try:
+        # Connect to the database
+        connect_response = requests.post(
+            f"{DB_SERVICE_URL}/connect",
+            json={"db_name": os.environ.get('DB_NAME', 'email_service.sqlite')}
+        )
+        app.logger.info(f"Database connection: {connect_response.json()}")
+
+        # Check if tables exist
+        tables_response = requests.get(f"{DB_SERVICE_URL}/tables")
+        tables = tables_response.json().get('tables', [])
+        
+        # Create email_logs table if it doesn't exist
+        if 'email_logs' not in tables:
+            email_logs_schema = {
+                "email_id": "TEXT PRIMARY KEY",
+                "recipient": "TEXT NOT NULL",
+                "subject": "TEXT NOT NULL",
+                "email_type": "TEXT NOT NULL",
+                "status": "TEXT NOT NULL",
+                "sent_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                "error_message": "TEXT"
+            }
+            
+            response = requests.post(
+                f"{DB_SERVICE_URL}/tables",
+                json={"table_name": "email_logs", "columns": email_logs_schema}
+            )
+            
+            app.logger.info(f"Email logs table initialization: {response.json()}")
+        
+        # Create verification_codes table if it doesn't exist
+        if 'verification_codes' not in tables:
+            verification_codes_schema = {
+                "email": "TEXT NOT NULL",
+                "code": "TEXT NOT NULL",
+                "code_type": "TEXT NOT NULL",
+                "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                "expires_at": "TIMESTAMP NOT NULL",
+                "PRIMARY KEY": "(email, code_type)"
+            }
+            
+            response = requests.post(
+                f"{DB_SERVICE_URL}/tables",
+                json={"table_name": "verification_codes", "columns": verification_codes_schema}
+            )
+            
+            app.logger.info(f"Verification codes table initialization: {response.json()}")
+            
+        return True
+    except Exception as e:
+        app.logger.error(f"Error initializing email tables: {str(e)}")
+        return False
+
+# Initialize tables when the service starts
+initialization_successful = initialize_email_tables()
 
 # API key required decorator
 def api_key_required(f):
@@ -64,40 +116,55 @@ def api_key_required(f):
     
     return decorated
 
-# Rate limiting decorator
+# Rate limiting decorator using database instead of Redis
 def rate_limit(limit=100, per=60, scope='global'):
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
-            # Skip rate limiting if Redis is not available
-            if redis_client is None:
+            if not initialization_successful:
+                # Skip rate limiting if database connection failed
                 return f(*args, **kwargs)
                 
             # Determine the key based on scope
             if scope == 'ip':
-                key = f"rate_limit:{request.remote_addr}:{f.__name__}"
+                identifier = f"{request.remote_addr}:{f.__name__}"
             elif scope == 'api_key':
                 api_key = request.headers.get('X-API-Key', 'default')
-                key = f"rate_limit:{api_key}:{f.__name__}"
+                identifier = f"{api_key}:{f.__name__}"
             else:
-                key = f"rate_limit:global:{f.__name__}"
+                identifier = f"global:{f.__name__}"
                 
-            # Get current count and time
+            # Get current time
+            current_time = datetime.now()
+            time_window_start = (current_time - timedelta(seconds=per)).strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Query the rate limiting
             try:
-                current = redis_client.get(key)
-                if current is None:
-                    redis_client.set(key, 1, ex=per)
-                    current = 1
-                else:
-                    current = int(current)
-                    if current >= limit:
+                # Count emails in the time window
+                query = f"""
+                SELECT COUNT(*) as count 
+                FROM email_logs 
+                WHERE email_type = ? AND sent_at > ?
+                """
+                
+                params = [identifier, time_window_start]
+                
+                response = requests.post(
+                    f"{DB_SERVICE_URL}/execute",
+                    json={"query": query, "params": params}
+                )
+                
+                result = response.json()
+                if result.get('status') == 'success' and result.get('data'):
+                    count = result['data'][0]['count']
+                    if count >= limit:
+                        wait_time = per - (current_time - datetime.strptime(time_window_start, "%Y-%m-%d %H:%M:%S")).seconds
                         return jsonify({
-                            'message': f'Rate limit exceeded. Try again in {redis_client.ttl(key)} seconds.'
+                            'message': f'Rate limit exceeded. Try again in {wait_time} seconds.'
                         }), 429
-                    redis_client.incr(key)
             except Exception as e:
-                app.logger.error(f"Redis error during rate limiting: {e}")
-                # Continue without rate limiting if Redis fails
+                app.logger.error(f"Database error during rate limiting: {e}")
+                # Continue without rate limiting if database query fails
                 
             return f(*args, **kwargs)
         return decorated
@@ -107,6 +174,34 @@ def generate_random_code(length=6):
     """Generate a random code of specified length using digits and uppercase letters."""
     characters = string.ascii_uppercase + string.digits
     return ''.join(random.choice(characters) for _ in range(length))
+
+def log_email(recipient, subject, email_type, status, error_message=None):
+    """Log email to database"""
+    if not initialization_successful:
+        app.logger.warning("Database not available for logging email")
+        return
+        
+    try:
+        email_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+        email_data = {
+            "email_id": email_id,
+            "recipient": recipient,
+            "subject": subject,
+            "email_type": email_type,
+            "status": status,
+            "sent_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "error_message": error_message
+        }
+        
+        response = requests.post(
+            f"{DB_SERVICE_URL}/tables/email_logs/data",
+            json=email_data
+        )
+        
+        if response.status_code != 200:
+            app.logger.error(f"Failed to log email: {response.json()}")
+    except Exception as e:
+        app.logger.error(f"Error logging email: {str(e)}")
 
 def send_email(to_email, subject, text_content, html_content):
     """Send an email using SMTP SSL (matching the working standalone script)"""
@@ -132,25 +227,133 @@ def send_email(to_email, subject, text_content, html_content):
         )
         server.quit()
         
+        # Log successful email
+        log_email(to_email, subject, "general", "sent")
+        
         app.logger.info(f"Email sent successfully to {to_email}")
         return True, "Email sent successfully"
         
     except Exception as e:
+        # Log failed email
+        log_email(to_email, subject, "general", "failed", str(e))
+        
         app.logger.error(f"Error sending email to {to_email}: {str(e)}")
         return False, f"Error sending email: {str(e)}"
 
-def store_verification_code(email, code, expiry_seconds=86400):
-    """Store verification code in Redis with expiry"""
-    if redis_client is None:
-        app.logger.warning("Redis not available for storing verification code")
+def store_verification_code(email, code, code_type="verification", expiry_seconds=86400):
+    """Store verification code in database with expiry"""
+    if not initialization_successful:
+        app.logger.warning("Database not available for storing verification code")
         return False
         
     try:
-        key = f"verification_code:{email}"
-        redis_client.set(key, code, ex=expiry_seconds)
+        # Calculate expiry time
+        expiry_time = (datetime.now() + timedelta(seconds=expiry_seconds)).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Check if there's an existing code for this email and type
+        check_query = """
+        SELECT email FROM verification_codes 
+        WHERE email = ? AND code_type = ?
+        """
+        
+        check_response = requests.post(
+            f"{DB_SERVICE_URL}/execute",
+            json={"query": check_query, "params": [email, code_type]}
+        )
+        
+        result = check_response.json()
+        
+        if result.get('status') == 'success' and result.get('data'):
+            # Update existing code
+            update_data = {
+                "code": code,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "expires_at": expiry_time
+            }
+            
+            response = requests.put(
+                f"{DB_SERVICE_URL}/tables/verification_codes/data",
+                json={
+                    "values": update_data,
+                    "condition": "email = ? AND code_type = ?",
+                    "params": [email, code_type]
+                }
+            )
+        else:
+            # Insert new code
+            code_data = {
+                "email": email,
+                "code": code,
+                "code_type": code_type,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "expires_at": expiry_time
+            }
+            
+            response = requests.post(
+                f"{DB_SERVICE_URL}/tables/verification_codes/data",
+                json=code_data
+            )
+        
+        if response.status_code != 200:
+            app.logger.error(f"Failed to store verification code: {response.json()}")
+            return False
+            
         return True
     except Exception as e:
         app.logger.error(f"Error storing verification code: {str(e)}")
+        return False
+
+def get_verification_code(email, code_type="verification"):
+    """Get verification code from database"""
+    if not initialization_successful:
+        app.logger.warning("Database not available for retrieving verification code")
+        return None
+        
+    try:
+        query = """
+        SELECT code, expires_at FROM verification_codes 
+        WHERE email = ? AND code_type = ? AND expires_at > ?
+        """
+        
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        response = requests.post(
+            f"{DB_SERVICE_URL}/execute",
+            json={"query": query, "params": [email, code_type, current_time]}
+        )
+        
+        result = response.json()
+        
+        if result.get('status') == 'success' and result.get('data'):
+            return result['data'][0]['code']
+        
+        return None
+    except Exception as e:
+        app.logger.error(f"Error getting verification code: {str(e)}")
+        return None
+
+def delete_verification_code(email, code_type="verification"):
+    """Delete verification code from database"""
+    if not initialization_successful:
+        app.logger.warning("Database not available for deleting verification code")
+        return False
+        
+    try:
+        response = requests.delete(
+            f"{DB_SERVICE_URL}/tables/verification_codes/data",
+            json={
+                "condition": "email = ? AND code_type = ?",
+                "params": [email, code_type]
+            }
+        )
+        
+        if response.status_code != 200:
+            app.logger.error(f"Failed to delete verification code: {response.json()}")
+            return False
+            
+        return True
+    except Exception as e:
+        app.logger.error(f"Error deleting verification code: {str(e)}")
         return False
 
 def get_verification_email_template(verification_code):
@@ -300,14 +503,15 @@ The E-commerce Team
 '''
     return text, html
 
-@app.route('/health', methods=['GET'])
+
+@app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    redis_status = "ok" if redis_client is not None else "unavailable"
+    db_status = "ok" if initialization_successful else "unavailable"
     return jsonify({
         'status': 'ok', 
         'service': 'email-service',
-        'redis': redis_status,
+        'database': db_status,
         'mail_server': app.config['MAIL_SERVER'],
         'mail_port': app.config['MAIL_PORT']
     }), 200
@@ -328,11 +532,8 @@ def send_verification_email():
     # Generate a random verification code
     verification_code = generate_random_code(code_length)
     
-    # Store the verification code in Redis
-    if redis_client is not None:
-        stored = store_verification_code(email, verification_code)
-        if not stored:
-            app.logger.warning(f"Could not store verification code for {email} in Redis")
+    # Store the verification code in database
+    stored = store_verification_code(email, verification_code, "verification", 86400)  # 24 hours
     
     # Get verification email template with code
     text_content, html_content = get_verification_email_template(verification_code)
@@ -346,14 +547,16 @@ def send_verification_email():
     )
     
     if success:
+        # Log verification email specifically
+        log_email(email, 'Verify your email address', "verification", "sent")
+        
         response_data = {
             'message': 'Verification email sent successfully!',
             'email': email
         }
         
-        # Only include the code in the response if Redis is not available
-        # This allows the API consumer to handle verification themselves
-        if redis_client is None:
+        # Only include the code in the response if database storage failed
+        if not stored:
             response_data['verification_code'] = verification_code
             
         return jsonify(response_data), 200
@@ -365,9 +568,6 @@ def send_verification_email():
 @api_key_required
 def verify_code():
     """Verify a code submitted by user"""
-    if redis_client is None:
-        return jsonify({'message': 'Verification service unavailable, Redis not connected!'}), 503
-        
     data = request.get_json()
     
     if not all(key in data for key in ['email', 'code']):
@@ -377,16 +577,15 @@ def verify_code():
     submitted_code = data['code']
     
     # Get the stored code
-    key = f"verification_code:{email}"
-    stored_code = redis_client.get(key)
+    stored_code = get_verification_code(email, "verification")
     
     if stored_code is None:
         return jsonify({'message': 'No verification code found or code expired!', 'verified': False}), 400
     
     # Compare codes (case-insensitive)
-    if submitted_code.upper() == stored_code.decode('utf-8').upper():
+    if submitted_code.upper() == stored_code.upper():
         # Delete the code once verified
-        redis_client.delete(key)
+        delete_verification_code(email, "verification")
         return jsonify({'message': 'Email verified successfully!', 'verified': True}), 200
     else:
         return jsonify({'message': 'Invalid verification code!', 'verified': False}), 400
@@ -407,10 +606,8 @@ def send_password_reset_email():
     # Generate a random reset code
     reset_code = generate_random_code(code_length)
     
-    # Store the reset code in Redis (expires in 1 hour)
-    if redis_client is not None:
-        key = f"password_reset:{email}"
-        redis_client.set(key, reset_code, ex=3600)
+    # Store the reset code in database (expires in 1 hour)
+    stored = store_verification_code(email, reset_code, "password_reset", 3600)  # 1 hour
     
     # Get password reset email template with code
     text_content, html_content = get_password_reset_template(reset_code)
@@ -424,13 +621,16 @@ def send_password_reset_email():
     )
     
     if success:
+        # Log password reset email specifically
+        log_email(email, 'Reset Your Password', "password_reset", "sent")
+        
         response_data = {
             'message': 'Password reset email sent successfully!',
             'email': email
         }
         
-        # Only include the code in the response if Redis is not available
-        if redis_client is None:
+        # Only include the code in the response if database storage failed
+        if not stored:
             response_data['reset_code'] = reset_code
             
         return jsonify(response_data), 200
@@ -462,6 +662,8 @@ def send_welcome_email():
     )
     
     if success:
+        # Log welcome email specifically
+        log_email(email, 'Welcome to Our Platform!', "welcome", "sent")
         return jsonify({'message': 'Welcome email sent successfully!'}), 200
     else:
         app.logger.error(f"Failed to send welcome email to {email}: {message}")
@@ -493,6 +695,8 @@ def send_notification_email():
     )
     
     if success:
+        # Log notification email specifically
+        log_email(email, subject, "notification", "sent")
         return jsonify({'message': 'Notification email sent successfully!'}), 200
     else:
         app.logger.error(f"Failed to send notification email to {email}: {message_result}")
@@ -522,10 +726,131 @@ def send_custom_email():
     )
     
     if success:
+        # Log custom email specifically
+        log_email(email, subject, "custom", "sent")
         return jsonify({'message': 'Custom email sent successfully!'}), 200
     else:
         app.logger.error(f"Failed to send custom email to {email}: {message}")
         return jsonify({'message': message}), 500
+
+@app.route('/emails/logs', methods=['GET'])
+@api_key_required
+def get_email_logs():
+    """Get email sending logs with optional filtering"""
+    if not initialization_successful:
+        return jsonify({'message': 'Database not available for email logs!'}), 503
+    
+    email = request.args.get('email')
+    status = request.args.get('status')
+    email_type = request.args.get('type')
+    date_from = request.args.get('from')
+    date_to = request.args.get('to')
+    
+    conditions = []
+    params = []
+    
+    if email:
+        conditions.append("recipient = ?")
+        params.append(email)
+    
+    if status:
+        conditions.append("status = ?")
+        params.append(status)
+    
+    if email_type:
+        conditions.append("email_type = ?")
+        params.append(email_type)
+    
+    if date_from:
+        conditions.append("sent_at >= ?")
+        params.append(date_from)
+    
+    if date_to:
+        conditions.append("sent_at <= ?")
+        params.append(date_to)
+    
+    # Construct condition string if filters are applied
+    condition = " AND ".join(conditions) if conditions else None
+    
+    try:
+        # Query the logs
+        response = requests.get(
+            f"{DB_SERVICE_URL}/tables/email_logs/data",
+            params={
+                "condition": condition, 
+                "params": ",".join(params) if params else None
+            }
+        )
+        
+        result = response.json()
+        
+        if result.get('status') != 'success':
+            return jsonify({'message': 'Failed to retrieve email logs!'}), 500
+        
+        return jsonify({
+            'message': 'Email logs retrieved successfully!',
+            'logs': result.get('data', [])
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error retrieving email logs: {str(e)}")
+        return jsonify({'message': f'Error retrieving email logs: {str(e)}'}), 500
+
+@app.route('/stats', methods=['GET'])
+@api_key_required
+def get_email_stats():
+    """Get email sending statistics"""
+    if not initialization_successful:
+        return jsonify({'message': 'Database not available for email statistics!'}), 503
+    
+    try:
+        # Get total emails sent
+        total_query = "SELECT COUNT(*) as total FROM email_logs"
+        total_response = requests.post(
+            f"{DB_SERVICE_URL}/execute",
+            json={"query": total_query}
+        )
+        
+        # Get emails by type
+        type_query = "SELECT email_type, COUNT(*) as count FROM email_logs GROUP BY email_type"
+        type_response = requests.post(
+            f"{DB_SERVICE_URL}/execute",
+            json={"query": type_query}
+        )
+        
+        # Get emails by status
+        status_query = "SELECT status, COUNT(*) as count FROM email_logs GROUP BY status"
+        status_response = requests.post(
+            f"{DB_SERVICE_URL}/execute",
+            json={"query": status_query}
+        )
+        
+        # Get daily email counts for last 7 days
+        daily_query = """
+        SELECT date(sent_at) as day, COUNT(*) as count 
+        FROM email_logs 
+        WHERE sent_at >= date('now', '-7 day') 
+        GROUP BY date(sent_at)
+        """
+        daily_response = requests.post(
+            f"{DB_SERVICE_URL}/execute",
+            json={"query": daily_query}
+        )
+        
+        # Compile stats
+        stats = {
+            'total_emails': total_response.json().get('data', [{}])[0].get('total', 0),
+            'by_type': type_response.json().get('data', []),
+            'by_status': status_response.json().get('data', []),
+            'daily': daily_response.json().get('data', [])
+        }
+        
+        return jsonify({
+            'message': 'Email statistics retrieved successfully!',
+            'stats': stats
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error retrieving email statistics: {str(e)}")
+        return jsonify({'message': f'Error retrieving email statistics: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5002))

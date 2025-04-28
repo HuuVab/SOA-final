@@ -10,7 +10,7 @@ services:
       - ecommerce-network
     restart: unless-stopped
 
-  # User Authentication Service
+  # User  Service
   customer-service:
     build: ./customer-service
     container_name: ecommerce-customer-service
@@ -41,7 +41,6 @@ services:
       dockerfile: Dockerfile
     container_name: ecommerce-email-service
     environment:
-      - ENGAGELAB_API_KEY=JGmLrgS5DNiO_test_TlGySK
       - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_USE_TLS=${MAIL_USE_TLS:-True}
@@ -49,16 +48,17 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
       - EMAIL_SERVICE_API_KEY=${EMAIL_SERVICE_API_KEY:-email_service_api_key}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
       - SECRET_KEY=${EMAIL_SERVICE_SECRET_KEY:-email_service_secret}
       - PORT=5002
+      - DB_SERVICE_URL=http://database-service:5003/api
+      - DB_NAME=/data/email_service.sqlite
     ports:
       - "5002:5002"
     volumes:
       - ./email-service:/app
+      - ./data:/data
     depends_on:
-      - redis
+      - database-service
     networks:
       - ecommerce-network
     restart: unless-stopped
@@ -78,24 +78,7 @@ services:
     networks:
       - ecommerce-network
     restart: unless-stopped
-  # Add this to your existing docker-compose.yml file
-  homepage-service:
-    build: ./homepage-service
-    container_name: ecommerce-homepage-service
-    restart: always
-    ports:
-      - "5004:5004"
-    environment:
-      - PORT=5004
-      - DB_SERVICE_URL=http://database-service:5003/api
-      - CUSTOMER_SERVICE_URL=http://customer-service:5000
-    volumes:
-      - ./homepage-service:/app
-    networks:
-      - ecommerce-network
-    depends_on:
-      - database-service
-      - customer-service
+  
   storage-service:
     build: ./storage-service
     container_name: ecommerce-storage-service
@@ -109,10 +92,12 @@ services:
       - FLASK_DEBUG=false
     volumes:
       - ./storage-service:/app
+      - ./data/storage:/data/storage
     networks:
       - ecommerce-network
     depends_on:
       - database-service
+
   # Promotion Service
   promotion-service:
     build: ./promotion-service
@@ -149,7 +134,7 @@ services:
       - FLASK_DEBUG=false
     volumes:
       - ./media-service:/app
-      - ./media:/media
+      - ./data/media:/data/media
     networks:
       - ecommerce-network
     depends_on:
@@ -180,6 +165,8 @@ services:
       - customer-service
       - storage-service
       - promotion-service
+
+
 networks:
   ecommerce-network:
     driver: bridge
