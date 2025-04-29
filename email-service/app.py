@@ -47,7 +47,7 @@ def initialize_email_tables():
         # Connect to the database
         connect_response = requests.post(
             f"{DB_SERVICE_URL}/connect",
-            json={"db_name": os.environ.get('DB_NAME', 'email_service.sqlite')}
+            json={"db_name": os.environ.get('DB_NAME', 'email.sqlite')}
         )
         app.logger.info(f"Database connection: {connect_response.json()}")
 
