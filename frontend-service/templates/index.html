@@ -1,0 +1,68 @@
+```html
+{% extends "layout.html" %}
+
+{% block title %}Welcome to Our E-Commerce Store{% endblock %}
+
+{% block content %}
+<section class="hero-section mb-5">
+    <div class="p-5 bg-primary text-white rounded">
+        <div class="container">
+            <h1 class="display-4">Welcome to our Store</h1>
+            <p class="lead">Discover amazing products at great prices.</p>
+            <a href="/products" class="btn btn-light">Shop Now</a>
+        </div>
+    </div>
+</section>
+
+<section class="featured-products mb-5">
+    <h2 class="text-center mb-4">Featured Products</h2>
+    <div class="row g-4" id="featuredProducts">
+        <!-- Featured products will be loaded here by JavaScript -->
+        <div class="col-12 text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="promotions mb-5">
+    <h2 class="text-center mb-4">Special Offers</h2>
+    <div class="row g-4" id="promotedProducts">
+        <!-- Promoted products will be loaded here by JavaScript -->
+        <div class="col-12 text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="categories mb-5">
+    <h2 class="text-center mb-4">Shop by Category</h2>
+    <div class="row g-4" id="categoryList">
+        <!-- Categories will be loaded here by JavaScript -->
+        <div class="col-12 text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load featured products
+        loadFeaturedProducts();
+        
+        // Load categories
+        loadCategories();
+        
+        // Load promoted products
+        loadPromotedProducts();
+    });
+</script>
+{% endblock %}
+```

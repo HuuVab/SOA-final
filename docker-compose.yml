@@ -217,6 +217,7 @@ services:
       - customer-service
       - payment-service
       - email-service
+
   admin-service:
     build: ./admin-service
     container_name: ecommerce-admin-service
@@ -253,7 +254,19 @@ services:
       - storage-service
       - promotion-service
 
-
+  frontend-service:
+    build: ./frontend-service
+    ports:
+      - "5012:5012"
+    environment:
+      - STORAGE_SERVICE_URL=http://storage-service:5005/api
+      - PROMOTION_SERVICE_URL=http://promotion-service:5006/api
+      - FLASK_DEBUG=true
+    depends_on:
+      - storage-service
+      - promotion-service
+    networks:
+      - ecommerce-network
 networks:
   ecommerce-network:
     driver: bridge

@@ -69,7 +69,8 @@ class ProductStorage:
         try:
             # Check if products table exists
             tables_url = f"{self.db_service_url}/tables"
-            response = requests.get(tables_url)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(tables_url,headers=headers)
             
             if response.status_code == 200:
                 data = response.json()
@@ -93,7 +94,8 @@ class ProductStorage:
                     
                     response = requests.post(
                         create_table_url, 
-                        json={"table_name": "products", "columns": columns}
+                        json={"table_name": "products", "columns": columns},
+                        headers=headers
                     )
                     
                     if response.status_code != 200:
@@ -104,7 +106,7 @@ class ProductStorage:
                 else:
                     # Check if we need to add the new columns to an existing table
                     schema_url = f"{self.db_service_url}/tables/products/schema"
-                    schema_response = requests.get(schema_url)
+                    schema_response = requests.get(schema_url, headers=headers)
                     
                     if schema_response.status_code == 200:
                         schema_data = schema_response.json()
@@ -146,7 +148,8 @@ class ProductStorage:
                     
                     response = requests.post(
                         create_table_url, 
-                        json={"table_name": "product_images", "columns": columns}
+                        json={"table_name": "product_images", "columns": columns},
+                        headers=headers
                     )
                     
                     if response.status_code != 200:
@@ -172,11 +175,15 @@ class ProductStorage:
             if params:
                 payload["params"] = params
             
-            response = requests.post(url, json=payload)
+           
+            headers = {'X-Database-Name': self.db_name}
+            
+            response = requests.post(url, json=payload, headers=headers)
             return response.json() if response.status_code == 200 else None
         except Exception as e:
             logger.error(f"Error executing query: {e}")
             return None
+
     def allowed_file(self, filename):
         """Check if a filename has an allowed extension"""
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -300,7 +307,8 @@ class ProductStorage:
             
             url = f"{self.db_service_url}/tables/product_images/data"
             params = {"condition": "image_id = ?", "params": image_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -336,7 +344,8 @@ class ProductStorage:
             
             url = f"{self.db_service_url}/tables/product_images/data"
             params = {"condition": "product_id = ?", "params": product_id, "order_by": "sort_order, created_at"}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url, headers=headers,params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -376,8 +385,8 @@ class ProductStorage:
                 "condition": "image_id = ?",
                 "params": [image_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 # If this is being set as primary, make sure all other images for this product are not primary
@@ -397,6 +406,7 @@ class ProductStorage:
         except Exception as e:
             logger.error(f"Error updating product image {image_id}: {e}")
             return {"status": "error", "message": str(e)}
+
     def _clear_other_primary_images(self, product_id, exclude_image_id):
         """Clear the is_primary flag from all other images of a product"""
         try:
@@ -406,8 +416,8 @@ class ProductStorage:
                 "condition": "product_id = ? AND image_id != ?",
                 "params": [product_id, exclude_image_id]
             }
-            
-            requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            requests.put(url, headers=headers, json=payload)
             return True
         except Exception as e:
             logger.error(f"Error clearing primary flag from other images: {e}")
@@ -456,8 +466,8 @@ class ProductStorage:
                 "condition": "image_id = ?",
                 "params": [image_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 # If this was a primary image, find a new primary image
@@ -507,7 +517,8 @@ class ProductStorage:
                     self.init_storage()
                 
             url = f"{self.db_service_url}/tables/products/data"
-            response = requests.get(url)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url, headers=headers)
             
             if response.status_code == 200:
                 result = response.json()
@@ -535,7 +546,8 @@ class ProductStorage:
                 
             url = f"{self.db_service_url}/tables/products/data"
             params = {"condition": "product_id = ?", "params": product_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -613,7 +625,8 @@ class ProductStorage:
             
             # Insert into database
             url = f"{self.db_service_url}/tables/products/data"
-            response = requests.post(url, json=db_data)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, json=db_data, headers=headers)
             
             if response.status_code != 200:
                 return {
@@ -681,8 +694,8 @@ class ProductStorage:
                 "condition": "product_id = ?",
                 "params": [product_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url, headers=headers,json=payload)
             
             if response.status_code == 200:
                 # Get the updated product
@@ -741,8 +754,8 @@ class ProductStorage:
                 "condition": "product_id = ?",
                 "params": [product_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 return {
@@ -778,8 +791,8 @@ class ProductStorage:
                 "query": search_query,
                 "params": [search_param, search_param, search_param, search_param]
             }
-            
-            response = requests.post(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers,json=payload)
             
             if response.status_code == 200:
                 result = response.json()
@@ -809,7 +822,8 @@ class ProductStorage:
                 
             url = f"{self.db_service_url}/tables/products/data"
             params = {"condition": "category = ?", "params": category}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url, headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -839,7 +853,8 @@ class ProductStorage:
                 
             url = f"{self.db_service_url}/tables/products/data"
             params = {"condition": "manufacturer = ?", "params": manufacturer}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url, headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()

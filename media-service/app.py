@@ -36,7 +36,6 @@ app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', UPLOAD_FOLDER)
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', MAX_CONTENT_LENGTH))
 
 
-
 class MediaService:
     def __init__(self, db_service_url=None, db_name=None):
         """Initialize the media service with the database service URL and db name"""

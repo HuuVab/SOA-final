@@ -359,13 +359,18 @@ class DatabaseManager:
     
 
 
-# Create a global database manager instance
-db_manager = DatabaseManager(os.environ.get('DB_NAME', 'ecommerce.sqlite'))
+# Instead of a single global db_manager
+db_managers = {}  # Dictionary to store multiple connections
 
-# Initialize database connection and tables
+# Default database for health checks and initial setup
+default_db_name = os.environ.get('DB_NAME', 'ecommerce.sqlite')
+db_managers[default_db_name] = DatabaseManager(default_db_name)
+
+# Initialize database connection for default database
 def initialize_app():
-    db_manager.connect()
-    # Initialize e-commerce tables
+    # Connect to default database at startup
+    db_managers[default_db_name].connect()
+    # Any other initialization needed
 
 # Call initialization function
 initialize_app()
@@ -375,26 +380,20 @@ def connect():
     """Connect to a database"""
     try:
         data = request.get_json()
-        db_name = data.get('db_name') if data else None
+        db_name = data.get('db_name')
         
-        if db_name:
-            global db_manager
-            db_manager = DatabaseManager(db_name)
-        
-        result = db_manager.connect()
+        if not db_name:
+            return jsonify({"status": "error", "message": "Database name is required"}), 400
+            
+        # Create or get existing manager for this database
+        if db_name not in db_managers:
+            db_managers[db_name] = DatabaseManager(db_name)
+            
+        # Connect to the database
+        result = db_managers[db_name].connect()
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in connect route: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/disconnect', methods=['POST'])
-def disconnect():
-    """Disconnect from the database"""
-    try:
-        result = db_manager.disconnect()
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in disconnect route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/execute', methods=['POST'])
@@ -407,8 +406,12 @@ def execute_query():
         
         query = data['query']
         params = data.get('params')
-        
-        result = db_manager.execute_query(query, params)
+        db_name = request.headers.get('X-Database-Name', default_db_name)
+
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+
+        result = db_managers[db_name].execute_query(query, params)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in execute_query route: {e}")
@@ -418,7 +421,13 @@ def execute_query():
 def list_tables():
     """List all tables in the database"""
     try:
-        result = db_manager.list_tables()
+        # Get database name from header or use default
+        db_name = request.headers.get('X-Database-Name', default_db_name)
+        
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+            
+        result = db_managers[db_name].list_tables()
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in list_tables route: {e}")
@@ -437,18 +446,28 @@ def create_table():
         
         table_name = data['table_name']
         columns = data['columns']
+        db_name = request.headers.get('X-Database-Name', default_db_name)
         
-        result = db_manager.create_table(table_name, columns)
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+        
+        result = db_managers[db_name].create_table(table_name, columns)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in create_table route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route('/api/tables/<table_name>', methods=['DELETE'])
 def drop_table(table_name):
     """Drop a table"""
     try:
-        result = db_manager.drop_table(table_name)
+        db_name = request.headers.get('X-Database-Name', default_db_name)
+        
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+            
+        result = db_managers[db_name].drop_table(table_name)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in drop_table route: {e}")
@@ -458,7 +477,12 @@ def drop_table(table_name):
 def get_table_schema(table_name):
     """Get schema for a specific table"""
     try:
-        result = db_manager.get_table_schema(table_name)
+        db_name = request.headers.get('X-Database-Name', default_db_name)
+        
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+            
+        result = db_managers[db_name].get_table_schema(table_name)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in get_table_schema route: {e}")
@@ -471,27 +495,34 @@ def select_data(table_name):
         columns = request.args.get('columns', '*')
         condition = request.args.get('condition')
         params_str = request.args.get('params')
+        db_name = request.headers.get('X-Database-Name', default_db_name)
+        
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
         
         # Parse params if provided
         params = None
         if params_str:
             params = tuple(params_str.split(','))
         
-        result = db_manager.select_data(table_name, columns, condition, params)
+        result = db_managers[db_name].select_data(table_name, columns, condition, params)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in select_data route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route('/api/tables/<table_name>/data', methods=['POST'])
 def insert_data(table_name):
     """Insert data into a table"""
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"status": "error", "message": "Data is required"}), 400
+        db_name = request.headers.get('X-Database-Name', default_db_name)
         
-        result = db_manager.insert_data(table_name, data)
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+            
+        result = db_managers[db_name].insert_data(table_name, data)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in insert_data route: {e}")
@@ -511,8 +542,12 @@ def update_data(table_name):
         values = data['values']
         condition = data['condition']
         params = data.get('params')
+        db_name = request.headers.get('X-Database-Name', default_db_name)
         
-        result = db_manager.update_data(table_name, values, condition, params)
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+        
+        result = db_managers[db_name].update_data(table_name, values, condition, params)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in update_data route: {e}")
@@ -525,8 +560,12 @@ def delete_data(table_name):
         data = request.get_json()
         condition = data.get('condition') if data else None
         params = data.get('params') if data else None
+        db_name = request.headers.get('X-Database-Name', default_db_name)
         
-        result = db_manager.delete_data(table_name, condition, params)
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+        
+        result = db_managers[db_name].delete_data(table_name, condition, params)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in delete_data route: {e}")
@@ -538,8 +577,12 @@ def backup_database():
     try:
         data = request.get_json()
         backup_dir = data.get('backup_dir', 'backups') if data else 'backups'
+        db_name = request.headers.get('X-Database-Name', default_db_name)
         
-        result = db_manager.backup_database(backup_dir)
+        if db_name not in db_managers:
+            return jsonify({"status": "error", "message": f"Database {db_name} not connected"}), 400
+        
+        result = db_managers[db_name].backup_database(backup_dir)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in backup_database route: {e}")
@@ -1009,12 +1052,15 @@ def search_products():
 def health_check():
     """Health check endpoint"""
     try:
+        connections = {}
+        for db_name, manager in db_managers.items():
+            connections[db_name] = manager.connected
+            
         return jsonify({
             "status": "up",
             "service": "Database Management API",
-            "connected": db_manager.connected,
-            "db_name": db_manager.db_name if db_manager.connected else None,
-            "version": "1.0.0"
+            "connections": connections,
+            "version": "2.0.0"
         })
     except Exception as e:
         logger.error(f"Error in health_check route: {e}")

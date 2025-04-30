@@ -1,0 +1,47 @@
+/* Main styling for the e-commerce frontend */
+
+/* Product card styling */
+.product-card {
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.product-card img {
+    height: 200px;
+    object-fit: cover;
+}
+
+/* Hero section styling */
+.hero-section {
+    background-size: cover;
+    background-position: center;
+}
+
+/* Category styling */
+.category-card {
+    transition: transform 0.3s;
+}
+
+.category-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Footer styling */
+footer a {
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .product-card img {
+        height: 150px;
+    }
+}
