@@ -25,8 +25,7 @@ CORS(app)  # Enable CORS for all routes
 DB_SERVICE_URL = os.environ.get('DB_SERVICE_URL', 'http://localhost:5003/api')
 CUSTOMER_SERVICE_URL = os.environ.get('CUSTOMER_SERVICE_URL', 'http://localhost:5000/api')
 CART_SERVICE_URL = os.environ.get('CART_SERVICE_URL', 'http://localhost:5008/api')
-EMAIL_SERVICE_URL = os.environ.get('EMAIL_SERVICE_URL', 'http://localhost:5002')
-EMAIL_SERVICE_API_KEY = os.environ.get('EMAIL_SERVICE_API_KEY', 'email_service_api_key')
+ORDER_SERVICE_URL = os.environ.get('ORDER_SERVICE_URL', 'http://order-service:5010/api')
 
 # Initialize database tables
 def initialize_payment_tables():
@@ -91,47 +90,6 @@ def initialize_payment_tables():
             
             logger.info(f"Delivery addresses table initialization: {response.json()}")
         
-        # Create orders table if it doesn't exist
-        if 'orders' not in tables:
-            orders_schema = {
-                "order_id": "TEXT PRIMARY KEY",
-                "customer_id": "TEXT NOT NULL",
-                "payment_method_id": "TEXT NOT NULL",
-                "address_id": "TEXT NOT NULL",
-                "total_amount": "REAL NOT NULL",
-                "status": "TEXT NOT NULL",  # 'pending', 'processing', 'completed', 'failed'
-                "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-                "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-                "FOREIGN KEY (payment_method_id)": "REFERENCES payment_methods(payment_method_id)",
-                "FOREIGN KEY (address_id)": "REFERENCES delivery_addresses(address_id)"
-            }
-            
-            response = requests.post(
-                f"{DB_SERVICE_URL}/tables",
-                json={"table_name": "orders", "columns": orders_schema}
-            )
-            
-            logger.info(f"Orders table initialization: {response.json()}")
-        
-        # Create order_items table if it doesn't exist
-        if 'order_items' not in tables:
-            order_items_schema = {
-                "order_item_id": "TEXT PRIMARY KEY",
-                "order_id": "TEXT NOT NULL",
-                "product_id": "TEXT NOT NULL",
-                "quantity": "INTEGER NOT NULL",
-                "price": "REAL NOT NULL",
-                "discount": "REAL DEFAULT 0",
-                "FOREIGN KEY (order_id)": "REFERENCES orders(order_id)"
-            }
-            
-            response = requests.post(
-                f"{DB_SERVICE_URL}/tables",
-                json={"table_name": "order_items", "columns": order_items_schema}
-            )
-            
-            logger.info(f"Order items table initialization: {response.json()}")
-        
         # Create transactions table if it doesn't exist
         if 'transactions' not in tables:
             transactions_schema = {
@@ -142,8 +100,7 @@ def initialize_payment_tables():
                 "status": "TEXT NOT NULL",  # 'pending', 'completed', 'failed'
                 "gateway_transaction_id": "TEXT",
                 "gateway_response": "TEXT",
-                "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-                "FOREIGN KEY (order_id)": "REFERENCES orders(order_id)"
+                "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             }
             
             response = requests.post(
@@ -729,13 +686,11 @@ class AddressManager:
             logger.error(f"Error setting default address: {str(e)}")
             return {"status": "error", "message": str(e)}
 
-# Order and Payment Processing
+# Payment Processing
 class PaymentProcessor:
-    def __init__(self, db_service_url, cart_service_url, email_service_url, email_service_api_key):
+    def __init__(self, db_service_url, cart_service_url):
         self.db_service_url = db_service_url
         self.cart_service_url = cart_service_url
-        self.email_service_url = email_service_url
-        self.email_service_api_key = email_service_api_key
     
     def get_customer_cart(self, customer_id, token):
         """Get the customer's cart from cart service"""
@@ -754,151 +709,127 @@ class PaymentProcessor:
             return None, str(e)
     
     def process_payment(self, customer_id, payment_method_id, address_id, token):
-        """Process payment for items in the cart"""
-        try:
-            # Get customer cart
-            cart, error = self.get_customer_cart(customer_id, token)
-            
-            if error:
-                return {"status": "error", "message": error}
-            
-            if not cart or not cart.get('items') or len(cart.get('items', [])) == 0:
-                return {"status": "error", "message": "Cart is empty"}
-            
-            # Verify payment method exists and belongs to customer
-            payment_response = requests.get(
-                f"{self.db_service_url}/tables/payment_methods/data",
-                params={"condition": "payment_method_id = ? AND customer_id = ?", "params": f"{payment_method_id},{customer_id}"}
-            )
-            
-            payment_methods = payment_response.json().get('data', [])
-            
-            if not payment_methods:
-                return {"status": "error", "message": "Payment method not found"}
-            
-            # Verify address exists and belongs to customer
-            address_response = requests.get(
-                f"{self.db_service_url}/tables/delivery_addresses/data",
-                params={"condition": "address_id = ? AND customer_id = ?", "params": f"{address_id},{customer_id}"}
-            )
-            
-            addresses = address_response.json().get('data', [])
-            
-            if not addresses:
-                return {"status": "error", "message": "Delivery address not found"}
-            
-            # Create order
-            order_id = str(uuid.uuid4())
-            order_data = {
-                "order_id": order_id,
-                "customer_id": customer_id,
-                "payment_method_id": payment_method_id,
-                "address_id": address_id,
-                "total_amount": cart.get('total_price', 0),
-                "status": "pending",
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            order_response = requests.post(
-                f"{self.db_service_url}/tables/orders/data",
-                json=order_data
-            )
-            
-            if order_response.status_code != 200 or order_response.json().get('status') != 'success':
-                return {"status": "error", "message": "Failed to create order"}
-            
-            # Create order items
-            for item in cart.get('items', []):
-                order_item_id = str(uuid.uuid4())
+            """Process payment for items in the cart"""
+            try:
+                # Get customer cart
+                cart, error = self.get_customer_cart(customer_id, token)
                 
-                order_item_data = {
-                    "order_item_id": order_item_id,
-                    "order_id": order_id,
-                    "product_id": item.get('product_id'),
-                    "quantity": item.get('quantity'),
-                    "price": item.get('product', {}).get('price', 0),
-                    "discount": item.get('discount_amount', 0)
-                }
+                if error:
+                    return {"status": "error", "message": error}
                 
-                item_response = requests.post(
-                    f"{self.db_service_url}/tables/order_items/data",
-                    json=order_item_data
+                if not cart or not cart.get('items') or len(cart.get('items', [])) == 0:
+                    return {"status": "error", "message": "Cart is empty"}
+                
+                # Verify payment method exists and belongs to customer
+                payment_response = requests.get(
+                    f"{self.db_service_url}/tables/payment_methods/data",
+                    params={"condition": "payment_method_id = ? AND customer_id = ?", "params": f"{payment_method_id},{customer_id}"}
                 )
                 
-                if item_response.status_code != 200 or item_response.json().get('status') != 'success':
-                    # Rollback order if item creation fails
-                    self._rollback_order(order_id)
-                    return {"status": "error", "message": "Failed to create order items"}
-            
-            # Process payment with external payment gateway (simplified for demo)
-            payment_result = self._simulate_payment_gateway(order_id, cart.get('total_price', 0), payment_method_id)
-            
-            if not payment_result.get('success'):
-                # Update order status to failed
-                self._update_order_status(order_id, "failed")
-                return {"status": "error", "message": payment_result.get('message', "Payment processing failed")}
-            
-            # Record transaction
-            transaction_id = str(uuid.uuid4())
-            transaction_data = {
-                "transaction_id": transaction_id,
-                "order_id": order_id,
-                "amount": cart.get('total_price', 0),
-                "payment_gateway": "simulation",  # In a real app, this would be the actual gateway name
-                "status": "completed",
-                "gateway_transaction_id": payment_result.get('transaction_id'),
-                "gateway_response": payment_result.get('gateway_response'),
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            transaction_response = requests.post(
-                f"{self.db_service_url}/tables/transactions/data",
-                json=transaction_data
-            )
-            
-            if transaction_response.status_code != 200 or transaction_response.json().get('status') != 'success':
-                # Payment was successful but recording transaction failed - just log the error
-                logger.error(f"Failed to record transaction for order {order_id}")
-            
-            # Clear the cart
-            requests.delete(
-                f"{self.cart_service_url}/cart/clear",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            
-            # Forward the payment success to the order service
-            try:
-                ORDER_SERVICE_URL = os.environ.get('ORDER_SERVICE_URL', 'http://localhost:5010/api')
+                payment_methods = payment_response.json().get('data', [])
                 
-                # Send webhook to order service
-                order_response = requests.post(
-                    f"{ORDER_SERVICE_URL}/orders/payment-webhook",
-                    json={
-                        "order_id": order_id,
-                        "transaction_id": transaction_id,
-                        "payment_status": "success"
-                    },
+                if not payment_methods:
+                    return {"status": "error", "message": "Payment method not found"}
+                
+                # Verify address exists and belongs to customer
+                address_response = requests.get(
+                    f"{self.db_service_url}/tables/delivery_addresses/data",
+                    params={"condition": "address_id = ? AND customer_id = ?", "params": f"{address_id},{customer_id}"}
+                )
+                
+                addresses = address_response.json().get('data', [])
+                
+                if not addresses:
+                    return {"status": "error", "message": "Delivery address not found"}
+                
+                # Process payment with external payment gateway (simplified for demo)
+                payment_result = self._simulate_payment_gateway(cart.get('total_price', 0), payment_method_id)
+                
+                if not payment_result.get('success'):
+                    return {"status": "error", "message": payment_result.get('message', "Payment processing failed")}
+                
+                # Create a temporary "placeholder" order ID to satisfy the current database schema
+                # In a real implementation, you would want to migrate the database to remove this dependency
+                temp_order_id = str(uuid.uuid4())
+                
+                # Record transaction using existing schema with order_id
+                transaction_id = str(uuid.uuid4())
+                transaction_data = {
+                    "transaction_id": transaction_id,
+                    "order_id": temp_order_id,  # Using a placeholder order ID
+                    "amount": cart.get('total_price', 0),
+                    "payment_gateway": "simulation",  # In a real app, this would be the actual gateway name
+                    "status": "completed",
+                    "gateway_transaction_id": payment_result.get('transaction_id'),
+                    "gateway_response": payment_result.get('gateway_response'),
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                
+                transaction_response = requests.post(
+                    f"{self.db_service_url}/tables/transactions/data",
+                    json=transaction_data
+                )
+                
+                if transaction_response.status_code != 200 or transaction_response.json().get('status') != 'success':
+                    logger.error(f"Failed to record transaction")
+                    return {"status": "error", "message": "Payment processed but failed to record transaction"}
+                
+                # Clear the cart
+                requests.delete(
+                    f"{self.cart_service_url}/cart/clear",
                     headers={"Authorization": f"Bearer {token}"}
                 )
                 
-                if order_response.status_code != 200:
-                    logger.error(f"Failed to notify order service: {order_response.text}")
+                # Forward the payment success to the order service
+                try:
+                    order_payload = {
+                        "customer_id": customer_id,
+                        "transaction_id": transaction_id,
+                        "payment_method_id": payment_method_id,
+                        "address_id": address_id,
+                        "cart_items": cart.get('items', []),
+                        "total_amount": cart.get('total_price', 0),
+                        "payment_status": "success"
+                    }
+                    logger.info(f"Sending order webhook payload: {order_payload}")
+                    # Send webhook to order service
+                    order_response = requests.post(
+                        f"{ORDER_SERVICE_URL}/orders/payment-webhook",
+                        json=order_payload,
+                        headers={"Authorization": f"Bearer {token}"}
+                    )
+                    logger.info(f"Order service response status: {order_response.status_code}")
+                    logger.info(f"Order service response body: {order_response.text}")
+
+                    if order_response.status_code != 200:
+                        logger.error(f"Failed to notify order service: {order_response.text}")
+                        return {
+                            "status": "success", 
+                            "message": "Payment processed successfully, but order creation failed. Please contact support.", 
+                            "transaction_id": transaction_id
+                        }
+                    
+                    # Get the order_id from the response
+                    order_id = order_response.json().get('order_id')
+                    return {
+                        "status": "success", 
+                        "message": "Payment processed successfully and order created", 
+                        "transaction_id": transaction_id,
+                        "order_id": order_id
+                    }
+                except Exception as e:
+                    logger.error(f"Error notifying order service: {str(e)}")
+                    return {
+                        "status": "success", 
+                        "message": "Payment processed successfully, but order creation failed. Please contact support.", 
+                        "transaction_id": transaction_id
+                    }
+                
             except Exception as e:
-                logger.error(f"Error notifying order service: {str(e)}")
-            
-            return {
-                "status": "success", 
-                "message": "Payment processed successfully", 
-                "order_id": order_id,
-                "transaction_id": transaction_id
-            }
-            
-        except Exception as e:
-            logger.error(f"Error processing payment: {str(e)}")
-            return {"status": "error", "message": str(e)}
+                logger.error(f"Error processing payment: {str(e)}")
+                return {"status": "error", "message": str(e)}
     
-    def _simulate_payment_gateway(self, order_id, amount, payment_method_id):
+    def _simulate_payment_gateway(self, amount, payment_method_id):
         """Simulate payment processing with external gateway"""
         # In a real application, this would integrate with Stripe, PayPal, etc.
         # For this demo, we'll simulate a successful payment most of the time
@@ -920,232 +851,11 @@ class PaymentProcessor:
                 "gateway_response": "Card declined",
                 "message": "Payment was declined. Please try a different payment method."
             }
-    
-    def _rollback_order(self, order_id):
-        """Rollback order creation if something fails"""
-        # Delete order items
-        requests.delete(
-            f"{self.db_service_url}/tables/order_items/data",
-            json={"condition": "order_id = ?", "params": [order_id]}
-        )
-        
-        # Delete order
-        requests.delete(
-            f"{self.db_service_url}/tables/orders/data",
-            json={"condition": "order_id = ?", "params": [order_id]}
-        )
-    
-    def _update_order_status(self, order_id, status):
-        """Update order status"""
-        update_data = {
-            "status": status,
-            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        requests.put(
-            f"{self.db_service_url}/tables/orders/data",
-            json={"values": update_data, "condition": "order_id = ?", "params": [order_id]}
-        )
-    
-    def _send_order_confirmation_email(self, customer_id, order_id, cart, address):
-        """Send order confirmation email to customer"""
-        try:
-            # Get customer email
-            response = requests.get(
-                f"{self.db_service_url}/tables/customers/data",
-                params={"condition": "customer_id = ?", "params": customer_id}
-            )
-            
-            customers = response.json().get('data', [])
-            
-            if not customers:
-                logger.error(f"Customer {customer_id} not found for order confirmation email")
-                return
-            
-            customer_email = customers[0].get('email')
-            customer_name = f"{customers[0].get('first_name')} {customers[0].get('last_name')}"
-            
-            # Create email content
-            subject = f"Order Confirmation #{order_id[:8]}"
-            
-            # Format items for email
-            items_text = "\n".join([
-                f"- {item.get('quantity')} x {item.get('product', {}).get('name')} "
-                f"(${float(item.get('product', {}).get('price', 0)):.2f} each)"
-                for item in cart.get('items', [])
-            ])
-            
-            # Format address for email
-            # Handle address line 2 separately to avoid backslash in f-string expression
-            address_line2_text = f"{address.get('address_line2')}\n" if address.get('address_line2') else ""
-            address_text = (
-                f"{address.get('name')}\n"
-                f"{address.get('address_line1')}\n"
-                f"{address_line2_text}"
-                f"{address.get('city')}, {address.get('state')} {address.get('postal_code')}\n"
-                f"{address.get('country')}"
-            )
-            
-            message = (
-                f"Dear {customer_name},\n\n"
-                f"Thank you for your order! Your order #{order_id[:8]} has been confirmed.\n\n"
-                f"Order Details:\n"
-                f"{items_text}\n\n"
-                f"Subtotal: ${float(cart.get('subtotal', 0)):.2f}\n"
-                f"Discount: ${float(cart.get('discount', 0)):.2f}\n"
-                f"Total: ${float(cart.get('total_price', 0)):.2f}\n\n"
-                f"Shipping Address:\n"
-                f"{address_text}\n\n"
-                f"We'll notify you when your order ships.\n\n"
-                f"Thank you for shopping with us!\n"
-                f"The E-commerce Team"
-            )
-            
-            # Send email through email service
-            requests.post(
-                f"{self.email_service_url}/send/notification",
-                json={
-                    "email": customer_email,
-                    "subject": subject,
-                    "message": message
-                },
-                headers={"X-API-Key": self.email_service_api_key}
-            )
-            
-        except Exception as e:
-            logger.error(f"Error sending order confirmation email: {str(e)}")
-    
-    def get_order_history(self, customer_id):
-        """Get order history for a customer"""
-        try:
-            # Get all orders for this customer
-            response = requests.get(
-                f"{self.db_service_url}/tables/orders/data",
-                params={"condition": "customer_id = ?", "params": customer_id}
-            )
-            
-            orders = response.json().get('data', [])
-            
-            # Enrich orders with items
-            for order in orders:
-                # Get order items
-                items_response = requests.get(
-                    f"{self.db_service_url}/tables/order_items/data",
-                    params={"condition": "order_id = ?", "params": order['order_id']}
-                )
-                
-                order['items'] = items_response.json().get('data', [])
-                
-                # Get transaction information
-                transaction_response = requests.get(
-                    f"{self.db_service_url}/tables/transactions/data",
-                    params={"condition": "order_id = ?", "params": order['order_id']}
-                )
-                
-                transactions = transaction_response.json().get('data', [])
-                if transactions:
-                    order['transaction'] = transactions[0]
-                
-                # Get address information
-                address_response = requests.get(
-                    f"{self.db_service_url}/tables/delivery_addresses/data",
-                    params={"condition": "address_id = ?", "params": order['address_id']}
-                )
-                
-                addresses = address_response.json().get('data', [])
-                if addresses:
-                    order['shipping_address'] = addresses[0]
-                
-                # Get payment method information (mask sensitive data)
-                payment_response = requests.get(
-                    f"{self.db_service_url}/tables/payment_methods/data",
-                    params={"condition": "payment_method_id = ?", "params": order['payment_method_id']}
-                )
-                
-                payment_methods = payment_response.json().get('data', [])
-                if payment_methods:
-                    payment_method = payment_methods[0]
-                    
-                    # Mask card number
-                    if 'card_number' in payment_method and payment_method['card_number']:
-                        payment_method['card_number'] = f"****{payment_method['card_number'][-4:]}"
-                    
-                    order['payment_method'] = payment_method
-            
-            return {"status": "success", "orders": orders}
-        except Exception as e:
-            logger.error(f"Error getting order history: {str(e)}")
-            return {"status": "error", "message": str(e)}
-    
-    def get_order_details(self, order_id, customer_id):
-        """Get detailed information about a specific order"""
-        try:
-            # Get order data
-            response = requests.get(
-                f"{self.db_service_url}/tables/orders/data",
-                params={"condition": "order_id = ? AND customer_id = ?", "params": f"{order_id},{customer_id}"}
-            )
-            
-            orders = response.json().get('data', [])
-            
-            if not orders:
-                return {"status": "error", "message": "Order not found"}
-            
-            order = orders[0]
-            
-            # Get order items
-            items_response = requests.get(
-                f"{self.db_service_url}/tables/order_items/data",
-                params={"condition": "order_id = ?", "params": order_id}
-            )
-            
-            order['items'] = items_response.json().get('data', [])
-            
-            # Get transaction information
-            transaction_response = requests.get(
-                f"{self.db_service_url}/tables/transactions/data",
-                params={"condition": "order_id = ?", "params": order_id}
-            )
-            
-            transactions = transaction_response.json().get('data', [])
-            if transactions:
-                order['transaction'] = transactions[0]
-            
-            # Get address information
-            address_response = requests.get(
-                f"{self.db_service_url}/tables/delivery_addresses/data",
-                params={"condition": "address_id = ?", "params": order['address_id']}
-            )
-            
-            addresses = address_response.json().get('data', [])
-            if addresses:
-                order['shipping_address'] = addresses[0]
-            
-            # Get payment method information (mask sensitive data)
-            payment_response = requests.get(
-                f"{self.db_service_url}/tables/payment_methods/data",
-                params={"condition": "payment_method_id = ?", "params": order['payment_method_id']}
-            )
-            
-            payment_methods = payment_response.json().get('data', [])
-            if payment_methods:
-                payment_method = payment_methods[0]
-                
-                # Mask card number
-                if 'card_number' in payment_method and payment_method['card_number']:
-                    payment_method['card_number'] = f"****{payment_method['card_number'][-4:]}"
-                
-                order['payment_method'] = payment_method
-            
-            return {"status": "success", "order": order}
-        except Exception as e:
-            logger.error(f"Error getting order details: {str(e)}")
-            return {"status": "error", "message": str(e)}
 
 # Initialize managers
 payment_method_manager = PaymentMethodManager(DB_SERVICE_URL)
 address_manager = AddressManager(DB_SERVICE_URL)
-payment_processor = PaymentProcessor(DB_SERVICE_URL, CART_SERVICE_URL, EMAIL_SERVICE_URL, EMAIL_SERVICE_API_KEY)
+payment_processor = PaymentProcessor(DB_SERVICE_URL, CART_SERVICE_URL)
 
 # API Routes
 
@@ -1177,12 +887,12 @@ def health_check():
         except:
             services_status['cart_service'] = "down"
         
-        # Check Email service
+        # Check Order service
         try:
-            email_response = requests.get(f"{EMAIL_SERVICE_URL}/api/health")
-            services_status['email_service'] = "up" if email_response.status_code == 200 else "down"
+            order_response = requests.get(f"{ORDER_SERVICE_URL}/health")
+            services_status['order_service'] = "up" if order_response.status_code == 200 else "down"
         except:
-            services_status['email_service'] = "down"
+            services_status['order_service'] = "down"
         
         return jsonify({
             "status": "up",
@@ -1381,7 +1091,7 @@ def set_default_address(customer_id, address_id):
         logger.error(f"Error setting default address: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# Order and Payment Routes
+# Payment Route
 @app.route('/api/checkout', methods=['POST'])
 @token_required
 def checkout(customer_id):
@@ -1410,32 +1120,6 @@ def checkout(customer_id):
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error processing checkout: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/orders', methods=['GET'])
-@token_required
-def get_order_history(customer_id):
-    """Get order history for a customer"""
-    try:
-        result = payment_processor.get_order_history(customer_id)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error getting order history: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/orders/<order_id>', methods=['GET'])
-@token_required
-def get_order_details(customer_id, order_id):
-    """Get detailed information about a specific order"""
-    try:
-        result = payment_processor.get_order_details(order_id, customer_id)
-        
-        if result['status'] != 'success':
-            return jsonify(result), 404
-            
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error getting order details: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # Main entry point

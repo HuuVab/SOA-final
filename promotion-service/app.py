@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-# Promotion Microservice using Database Service with dedicated database
-# RESTful API using Flask
-
 from flask import Flask, request, jsonify
 import os
 import logging
@@ -71,7 +67,8 @@ class PromotionService:
         try:
             # Check if promotions table exists
             tables_url = f"{self.db_service_url}/tables"
-            response = requests.get(tables_url)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(tables_url, headers=headers)
             
             if response.status_code == 200:
                 data = response.json()
@@ -96,7 +93,8 @@ class PromotionService:
                     
                     response = requests.post(
                         create_table_url, 
-                        json={"table_name": "promotions", "columns": columns}
+                        json={"table_name": "promotions", "columns": columns},
+                        headers=headers
                     )
                     
                     if response.status_code != 200:
@@ -125,7 +123,8 @@ class PromotionService:
                     self.init_promotion_table()
                 
             url = f"{self.db_service_url}/tables/promotions/data"
-            response = requests.get(url)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url, headers=headers)
             
             if response.status_code == 200:
                 result = response.json()
@@ -153,7 +152,8 @@ class PromotionService:
                 
             url = f"{self.db_service_url}/tables/promotions/data"
             params = {"condition": "promotion_id = ?", "params": promotion_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -196,47 +196,33 @@ class PromotionService:
             return {"status": "error", "message": str(e)}
     
     def get_product(self, product_id):
-        """Get a product from storage database by ID"""
+        """Get a product by calling the Storage Service API"""
         try:
-            # Temporarily connect to storage database
-            connect_url = f"{self.db_service_url}/connect"
-            response = requests.post(connect_url, json={"db_name": self.storage_db_name})
+            # Use environment variable or default to service name in docker network
+            storage_service_url = os.environ.get('STORAGE_SERVICE_URL', 'http://localhost:5005')
             
-            if response.status_code != 200:
-                logger.error(f"Error connecting to storage database: {response.text}")
-                return {"status": "error", "message": "Error connecting to storage database"}
+            # Make API call to storage service
+            api_url = f"{storage_service_url}/api/products/{product_id}"
+            logger.info(f"Calling storage service API: {api_url}")
             
-            # Query product from storage database
-            url = f"{self.db_service_url}/tables/products/data"
-            params = {"condition": "product_id = ?", "params": product_id}
-            response = requests.get(url, params=params)
+            api_response = requests.get(api_url, timeout=5)
             
-            # Reconnect to promotion database after querying
-            reconnect_response = requests.post(connect_url, json={"db_name": self.db_name})
-            if reconnect_response.status_code != 200:
-                logger.warning(f"Error reconnecting to promotion database: {reconnect_response.text}")
-            
-            # Process response from storage database
-            if response.status_code == 200:
-                result = response.json()
-                products = result.get('data', [])
-                
-                if products:
+            if api_response.status_code == 200:
+                result = api_response.json()
+                if result.get('status') == 'success' and result.get('data'):
                     return {
-                        "status": "success",
+                        "status": "success", 
                         "message": f"Retrieved product {product_id}",
-                        "data": products[0]
+                        "data": result.get('data')
                     }
-                else:
-                    return {
-                        "status": "error",
-                        "message": f"Product with ID {product_id} not found"
-                    }
-            else:
-                return {
-                    "status": "error",
-                    "message": f"Error retrieving product: {response.text}"
-                }
+            
+            # If API call failed, log detailed information
+            logger.error(f"Failed to retrieve product from storage service: Status {api_response.status_code}, Response: {api_response.text}")
+            
+            return {
+                "status": "error",
+                "message": f"Product with ID {product_id} not found (Status: {api_response.status_code})"
+            }
         except Exception as e:
             logger.error(f"Error retrieving product {product_id}: {e}")
             return {"status": "error", "message": str(e)}
@@ -289,7 +275,8 @@ class PromotionService:
                 
             # Insert promotion into database
             url = f"{self.db_service_url}/tables/promotions/data"
-            response = requests.post(url, json=promotion_data)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers, json=promotion_data)
             
             if response.status_code == 200:
                 # Calculate discounted price
@@ -358,8 +345,8 @@ class PromotionService:
                 "condition": "promotion_id = ?",
                 "params": [promotion_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 # Get the updated promotion with product info
@@ -397,8 +384,8 @@ class PromotionService:
                 "condition": "promotion_id = ?",
                 "params": [promotion_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 return {
@@ -433,7 +420,8 @@ class PromotionService:
             # Get promotions for this product
             url = f"{self.db_service_url}/tables/promotions/data"
             params = {"condition": "product_id = ?", "params": product_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -487,8 +475,8 @@ class PromotionService:
                 "query": query,
                 "params": [current_date, current_date]
             }
-            
-            response = requests.post(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 result = response.json()

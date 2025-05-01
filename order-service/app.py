@@ -710,7 +710,121 @@ class OrderManager:
             
         except Exception as e:
             logger.error(f"Error sending status update email: {str(e)}")
-
+    def create_order_from_payment(self, payment_data):
+        """Create an order from successful payment data"""
+        try:
+            # Extract data from payment response
+            if not payment_data or 'transaction_id' not in payment_data:
+                return {"status": "error", "message": "Invalid payment data"}
+            
+            transaction_id = payment_data.get('transaction_id')
+            customer_id = payment_data.get('customer_id')
+            payment_method_id = payment_data.get('payment_method_id')
+            address_id = payment_data.get('address_id')
+            cart_items = payment_data.get('cart_items', [])
+            total_amount = payment_data.get('total_amount', 0)
+            
+            # Create a new order
+            order_id = str(uuid.uuid4())
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Calculate estimated delivery (7 days from now)
+            estimated_delivery = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            
+            order_data = {
+                "order_id": order_id,
+                "customer_id": customer_id,
+                "transaction_id": transaction_id,
+                "payment_method_id": payment_method_id,
+                "address_id": address_id,
+                "total_amount": total_amount,
+                "status": "processing",
+                "tracking_number": None,
+                "carrier": None,
+                "notes": "Order created from successful payment",
+                "created_at": now,
+                "updated_at": now,
+                "estimated_delivery": estimated_delivery
+            }
+            
+            # Insert order
+            order_response = requests.post(
+                f"{self.db_service_url}/tables/orders/data",
+                json=order_data
+            )
+            
+            if order_response.status_code != 200 or order_response.json().get('status') != 'success':
+                return {"status": "error", "message": "Failed to create order"}
+            
+            # Create order items
+            for item in cart_items:
+                order_item_id = str(uuid.uuid4())
+                
+                # Get product details from product service
+                product_response = requests.get(
+                    f"{self.product_service_url}/products/{item.get('product_id')}"
+                )
+                
+                product_name = "Unknown Product"
+                product_image = None
+                
+                if product_response.status_code == 200 and product_response.json().get('status') == 'success':
+                    product = product_response.json().get('data')
+                    product_name = product.get('name', "Unknown Product")
+                    product_image = product.get('image_url')
+                
+                order_item_data = {
+                    "order_item_id": order_item_id,
+                    "order_id": order_id,
+                    "product_id": item.get('product_id'),
+                    "product_name": product_name,
+                    "product_image": product_image,
+                    "quantity": item.get('quantity'),
+                    "price": item.get('price', 0),
+                    "discount": item.get('discount', 0)
+                }
+                
+                item_response = requests.post(
+                    f"{self.db_service_url}/tables/order_items/data",
+                    json=order_item_data
+                )
+                
+                if item_response.status_code != 200 or item_response.json().get('status') != 'success':
+                    logger.error(f"Failed to create order item: {item_response.json()}")
+            
+            # Record initial status
+            self.add_status_history(order_id, "processing", "Order created and processing")
+            
+            # Get address details for the email
+            shipping_address = {}
+            try:
+                address_response = requests.get(
+                    f"{self.payment_service_url}/addresses/{address_id}",
+                    headers={"Authorization": request.headers.get('Authorization')}
+                )
+                
+                if address_response.status_code == 200:
+                    shipping_address = address_response.json().get('address', {})
+            except Exception as e:
+                logger.error(f"Error fetching address for confirmation email: {str(e)}")
+            
+            # Send order confirmation email
+            self._send_order_confirmation_email(
+                customer_id,
+                order_id, 
+                cart_items,
+                total_amount,
+                shipping_address
+            )
+            
+            return {
+                "status": "success", 
+                "message": "Order created successfully", 
+                "order_id": order_id
+            }
+        except Exception as e:
+            logger.error(f"Error creating order from payment: {str(e)}")
+            return {"status": "error", "message": str(e)}
 # Initialize order manager
 order_manager = OrderManager(
     DB_SERVICE_URL, 
@@ -908,7 +1022,6 @@ def get_admin_order_details(order_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/admin/orders/<order_id>/status', methods=['PUT'])
-@admin_required
 def update_order_status(order_id):
     """Update order status (admin only)"""
     try:

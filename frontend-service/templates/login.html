@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+
+{% block title %}Login to Your Account{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Login to Your Account</h3>
+            </div>
+            <div class="card-body p-4">
+                <div id="pageLoginAlert" class="alert alert-danger d-none"></div>
+                
+                <form id="pageLoginForm">
+                    <div class="mb-3">
+                        <label for="pageLoginEmail" class="form-label">Email address</label>
+                        <input type="email" class="form-control" id="pageLoginEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pageLoginPassword" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="pageLoginPassword" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="rememberMe">
+                        <label class="form-check-label" for="rememberMe">Remember me</label>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <span id="loginBtnText">Log In</span>
+                            <span id="loginSpinner" class="loading-spinner d-none"></span>
+                        </button>
+                        <a href="#" id="pageForgotPasswordLink">Forgot password?</a>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light">
+                <p class="text-center mb-0">Don't have an account? <a href="#" id="pageRegisterLink" data-bs-toggle="modal" data-bs-target="#registerModal">Register now</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if already logged in
+        const token = localStorage.getItem('ecomm_auth_token');
+        if (token) {
+            // Redirect to account page or homepage
+            window.location.href = '/account';
+            return;
+        }
+        
+        // Handle form submission
+        const form = document.getElementById('pageLoginForm');
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('pageLoginEmail').value;
+            const password = document.getElementById('pageLoginPassword').value;
+            const alertElement = document.getElementById('pageLoginAlert');
+            const loginBtn = document.getElementById('loginBtnText');
+            const spinner = document.getElementById('loginSpinner');
+            
+            // Show loading spinner
+            loginBtn.classList.add('d-none');
+            spinner.classList.remove('d-none');
+            
+            try {
+                const response = await fetch('/api/customers/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Login successful
+                    localStorage.setItem('ecomm_auth_token', data.token);
+                    localStorage.setItem('ecomm_user_data', JSON.stringify(data.customer));
+                    
+                    // Redirect to account page or homepage
+                    window.location.href = '/account';
+                } else if (response.status === 403 && data.verification_required) {
+                    // Need verification - redirect to verification page
+                    localStorage.setItem('email_to_verify', data.email);
+                    window.location.href = '/verify-email';
+                } else {
+                    // Login failed
+                    alertElement.textContent = data.message || 'Login failed. Please check your credentials.';
+                    alertElement.classList.remove('d-none');
+                    
+                    // Hide spinner, show button text
+                    loginBtn.classList.remove('d-none');
+                    spinner.classList.add('d-none');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alertElement.textContent = 'An error occurred. Please try again later.';
+                alertElement.classList.remove('d-none');
+                
+                // Hide spinner, show button text
+                loginBtn.classList.remove('d-none');
+                spinner.classList.add('d-none');
+            }
+        });
+        
+        // Register link
+        document.getElementById('pageRegisterLink').addEventListener('click', function() {
+            // The modal is triggered by data attributes
+        });
+    });
+</script>
+{% endblock %}

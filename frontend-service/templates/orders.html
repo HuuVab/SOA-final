@@ -1,0 +1,269 @@
+{% extends "layout.html" %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">My Orders</h1>
+        </div>
+    </div>
+
+    <div class="row" id="ordersContainer">
+        <!-- This will be populated by JavaScript -->
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading your orders...</p>
+        </div>
+    </div>
+
+    <div class="row d-none" id="notLoggedInMessage">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h4 class="alert-heading">You are not logged in</h4>
+                <p>Please log in to view your orders.</p>
+                <hr>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#registerModal">Register</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row d-none" id="noOrdersMessage">
+        <div class="col-12">
+            <div class="alert alert-info text-center py-5">
+                <i class="bi bi-box-seam" style="font-size: 3rem;"></i>
+                <h4 class="mt-3">No Orders Yet</h4>
+                <p>You haven't placed any orders yet.</p>
+                <a href="/products" class="btn btn-primary mt-3">Start Shopping</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row d-none" id="ordersContent">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Order History</h5>
+                        <div class="form-inline">
+                            <select class="form-select form-select-sm" id="orderFilterSelect">
+                                <option value="all">All Orders</option>
+                                <option value="processing">Processing</option>
+                                <option value="shipped">Shipped</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="ordersList">
+                        <!-- Orders will be populated here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if logged in
+        const token = localStorage.getItem('ecomm_auth_token');
+        if (!token) {
+            // Not logged in
+            document.getElementById('ordersContainer').classList.add('d-none');
+            document.getElementById('notLoggedInMessage').classList.remove('d-none');
+            return;
+        }
+        
+        // Setup filter listener
+        document.getElementById('orderFilterSelect').addEventListener('change', function() {
+            filterOrders(this.value);
+        });
+        
+        // Load orders
+        loadOrders();
+    });
+    
+    async function loadOrders() {
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            const response = await fetch('/api/orders', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            // Hide loader
+            document.getElementById('ordersContainer').classList.add('d-none');
+            
+            if (response.ok && data.status === 'success') {
+                const orders = data.orders || [];
+                
+                if (orders.length === 0) {
+                    // No orders
+                    document.getElementById('noOrdersMessage').classList.remove('d-none');
+                    return;
+                }
+                
+                // Display orders content
+                document.getElementById('ordersContent').classList.remove('d-none');
+                
+                // Store orders in global variable for filtering
+                window.allOrders = orders;
+                
+                // Render all orders
+                renderOrders(orders);
+            } else {
+                // Error loading orders
+                document.getElementById('noOrdersMessage').classList.remove('d-none');
+                console.error('Error loading orders:', data.message);
+            }
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            document.getElementById('ordersContainer').classList.add('d-none');
+            document.getElementById('noOrdersMessage').classList.remove('d-none');
+        }
+    }
+    
+    function renderOrders(orders) {
+        const ordersList = document.getElementById('ordersList');
+        ordersList.innerHTML = '';
+        
+        // Sort orders by date (newest first)
+        orders.sort((a, b) => {
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+        
+        orders.forEach(order => {
+            const orderDate = new Date(order.created_at).toLocaleDateString();
+            const orderStatus = order.status || 'Processing';
+            const statusClass = getStatusClass(orderStatus);
+            const itemCount = order.items ? order.items.length : 0;
+            
+            // Get a preview of items
+            let itemsPreview = '';
+            if (order.items && order.items.length > 0) {
+                const previewItems = order.items.slice(0, 3);
+                itemsPreview = previewItems.map(item => {
+                    const productImage = item.product_image 
+                        ? `/api/storage/serve/${item.product_image}` 
+                        : 'https://placehold.co/50x50?text=No+Image';
+                    
+                    return `
+                        <div class="me-2">
+                            <img src="${productImage}" alt="${item.product_name}" 
+                                 class="img-thumbnail" style="width: 50px; height: 50px; object-fit: contain;">
+                        </div>
+                    `;
+                }).join('');
+                
+                // Add ellipsis if there are more items
+                if (order.items.length > 3) {
+                    itemsPreview += `
+                        <div class="me-2 d-flex align-items-center justify-content-center" 
+                             style="width: 50px; height: 50px; background-color: #f8f9fa; border-radius: 0.25rem;">
+                            <span>+${order.items.length - 3}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Format order ID
+            const shortOrderId = order.order_id.substring(0, 8);
+            
+            const orderElement = document.createElement('div');
+            orderElement.className = 'list-group-item p-0';
+            orderElement.innerHTML = `
+                <div class="row g-0">
+                    <div class="col-md-12">
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="mb-0">
+                                    Order #${shortOrderId}
+                                    <span class="badge ${statusClass} ms-2">${orderStatus}</span>
+                                </h5>
+                                <small class="text-muted">${orderDate}</small>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                ${itemsPreview}
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-muted">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+                                    <span class="mx-2">•</span>
+                                    <span class="fw-bold">${formatPrice(order.total_amount || 0)}</span>
+                                </div>
+                                <a href="/orders/${order.order_id}" class="btn btn-outline-primary btn-sm">
+                                    View Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            ordersList.appendChild(orderElement);
+        });
+    }
+    
+    function filterOrders(status) {
+        if (!window.allOrders) return;
+        
+        if (status === 'all') {
+            renderOrders(window.allOrders);
+            return;
+        }
+        
+        // Filter orders by status
+        const filteredOrders = window.allOrders.filter(order => 
+            order.status && order.status.toLowerCase() === status.toLowerCase()
+        );
+        
+        renderOrders(filteredOrders);
+        
+        // Show "no orders" message if no orders match the filter
+        const ordersList = document.getElementById('ordersList');
+        if (filteredOrders.length === 0) {
+            ordersList.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="mb-0">No orders with status "${status.charAt(0).toUpperCase() + status.slice(1)}" found.</p>
+                </div>
+            `;
+        }
+    }
+    
+    function getStatusClass(status) {
+        switch (status.toLowerCase()) {
+            case 'processing':
+                return 'bg-warning text-dark';
+            case 'shipped':
+                return 'bg-info text-dark';
+            case 'delivered':
+                return 'bg-success';
+            case 'cancelled':
+                return 'bg-danger';
+            default:
+                return 'bg-secondary';
+        }
+    }
+    
+    function formatPrice(price) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(price);
+    }
+</script>
+{% endblock %}

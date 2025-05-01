@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Commerce Store - Homepage</title>
+    <title>News - E-Commerce Store</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -22,7 +22,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="/">Home</a>
+                        <a class="nav-link" href="/">Home</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/products">Products</a>
@@ -36,7 +36,7 @@
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/news">News</a>
+                        <a class="nav-link active" href="/news">News</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/articles">Articles</a>
@@ -61,123 +61,59 @@
         </div>
     </nav>
 
-    <!-- Hero Banner -->
-    <div class="bg-light py-5">
+    <!-- News Header -->
+    <div class="bg-primary text-white py-5">
         <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h1 class="display-4 fw-bold">Welcome to Our Store</h1>
-                    <p class="lead">Discover amazing products at great prices!</p>
-                    <a href="/products" class="btn btn-primary btn-lg">Shop Now</a>
-                </div>
-                <div class="col-md-6">
-                    <div class="bg-primary text-white p-5 rounded d-flex align-items-center justify-content-center" style="height: 300px;">
-                        <div class="text-center">
-                            <i class="bi bi-shop display-1 mb-3"></i>
-                            <h4>Quality Products at Great Prices</h4>
-                        </div>
-                    </div>
+            <div class="row">
+                <div class="col-md-8 mx-auto text-center">
+                    <h1 class="display-5 fw-bold">Latest News</h1>
+                    <p class="lead">Stay updated with our company news and announcements</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Featured Products Section -->
-    <section class="py-5">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Featured Products</h2>
-                <p class="text-muted">Check out our selection of featured products</p>
-            </div>
-            <div class="row" id="featuredProducts">
-                <!-- Featured products will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+    <!-- News Listing -->
+    <div class="container py-5">
+        <!-- Filter/Search (optional) -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="newsSearch" placeholder="Search news...">
+                    <button class="btn btn-outline-primary" type="button" id="searchNewsBtn">Search</button>
                 </div>
             </div>
-            <div class="text-center mt-4">
-                <a href="/products" class="btn btn-outline-primary">View All Products</a>
+            <div class="col-md-6 d-flex justify-content-md-end">
+                <select class="form-select w-auto" id="newsSortOrder">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="title">Title A-Z</option>
+                </select>
             </div>
         </div>
-    </section>
-
-    <!-- Latest News Section -->
-    <section class="py-5 bg-light media-section">
-        <div class="container">
-            <div class="media-section-header">
-                <h2 class="fw-bold">Latest News</h2>
-                <p class="media-section-subheader">Stay updated with our company news and announcements</p>
-            </div>
-            <div class="row" id="latestNews">
-                <!-- Latest news will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+        
+        <!-- News List -->
+        <div class="row" id="allNews">
+            <!-- News will be loaded via JavaScript -->
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading news...</span>
                 </div>
-            </div>
-            <div class="text-center mt-4">
-                <a href="/news" class="btn btn-outline-primary">View All News</a>
+                <p class="mt-3">Loading news articles...</p>
             </div>
         </div>
-    </section>
-
-    <!-- Featured Articles Section -->
-    <section class="py-5 media-section">
-        <div class="container">
-            <div class="media-section-header">
-                <h2 class="fw-bold">Featured Articles</h2>
-                <p class="media-section-subheader">Read our latest articles and guides</p>
-            </div>
-            <div class="row" id="featuredArticles">
-                <!-- Featured articles will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-            <div class="text-center mt-4">
-                <a href="/articles" class="btn btn-outline-primary">View All Articles</a>
+        
+        <!-- Pagination -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <nav aria-label="News pagination">
+                    <ul class="pagination justify-content-center" id="newsPagination">
+                        <!-- Pagination will be added via JavaScript if needed -->
+                    </ul>
+                </nav>
             </div>
         </div>
-    </section>
-
-    <!-- Categories Section -->
-    <section class="py-5 bg-light">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Shop by Category</h2>
-                <p class="text-muted">Browse products by category</p>
-            </div>
-            <div class="row" id="categoryList">
-                <!-- Categories will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Newsletter Section -->
-    <section class="py-5 bg-primary text-white">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-md-8 text-center">
-                    <h2 class="fw-bold mb-4">Subscribe to Our Newsletter</h2>
-                    <p class="mb-4">Get the latest updates, news and product offers delivered directly to your inbox.</p>
-                    <div class="input-group mb-3">
-                        <input type="email" class="form-control" placeholder="Your email address">
-                        <button class="btn btn-light" type="button">Subscribe</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    </div>
 
     <!-- Footer -->
     <footer class="bg-dark text-white py-4">
@@ -231,25 +167,6 @@
             </div>
         </div>
     </footer>
-
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Login Required</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Please log in to continue shopping.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <a href="/login" class="btn btn-primary">Go to Login</a>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

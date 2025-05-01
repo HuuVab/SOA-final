@@ -1,0 +1,1014 @@
+{% extends "layout.html" %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Checkout</h1>
+        </div>
+    </div>
+    
+    <div class="row" id="checkoutLoader">
+        <!-- This will be shown during loading -->
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading checkout information...</p>
+        </div>
+    </div>
+
+    <div class="row d-none" id="notLoggedInMessage">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h4 class="alert-heading">You are not logged in</h4>
+                <p>Please log in to proceed with checkout.</p>
+                <hr>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#registerModal">Register</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row d-none" id="emptyCartMessage">
+        <div class="col-12">
+            <div class="alert alert-info text-center py-5">
+                <i class="bi bi-cart3" style="font-size: 3rem;"></i>
+                <h4 class="mt-3">Your Cart is Empty</h4>
+                <p>You need to add some products to your cart before checkout.</p>
+                <a href="/products" class="btn btn-primary mt-3">Start Shopping</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row d-none" id="checkoutContent">
+        <div class="col-lg-8">
+            <!-- Checkout Steps -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <ul class="nav nav-pills card-header-pills" id="checkoutTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="address-tab" data-bs-toggle="pill" data-bs-target="#address" type="button" role="tab">
+                                1. Shipping Address
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="payment-tab" data-bs-toggle="pill" data-bs-target="#payment" type="button" role="tab">
+                                2. Payment Method
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="review-tab" data-bs-toggle="pill" data-bs-target="#review" type="button" role="tab">
+                                3. Review Order
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="checkoutTabContent">
+                        <!-- 1. Shipping Address -->
+                        <div class="tab-pane fade show active" id="address" role="tabpanel" aria-labelledby="address-tab">
+                            <h5 class="mb-3">Select Shipping Address</h5>
+                            
+                            <div id="addressLoader" class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading addresses...</span>
+                                </div>
+                                <span class="ms-2">Loading addresses...</span>
+                            </div>
+                            
+                            <div id="addressList" class="d-none">
+                                <!-- Addresses will be populated here -->
+                            </div>
+                            
+                            <div id="noAddressMessage" class="alert alert-info mt-3 d-none">
+                                <p>You don't have any saved addresses yet. Please add one to continue.</p>
+                            </div>
+                            
+                            <button class="btn btn-outline-primary mt-3" id="newAddressBtn">
+                                <i class="bi bi-plus-circle"></i> Add New Address
+                            </button>
+                            
+                            <div class="mt-4 d-none" id="addressForm">
+                                <h6>Add New Address</h6>
+                                <form id="newAddressForm">
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label for="addressName" class="form-label">Full Name</label>
+                                            <input type="text" class="form-control" id="addressName" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="addressLine1" class="form-label">Address Line 1</label>
+                                            <input type="text" class="form-control" id="addressLine1" placeholder="Street address, P.O. box, company name" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="addressLine2" class="form-label">Address Line 2 (optional)</label>
+                                            <input type="text" class="form-control" id="addressLine2" placeholder="Apartment, suite, unit, building, floor, etc.">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="addressCity" class="form-label">City</label>
+                                            <input type="text" class="form-control" id="addressCity" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="addressState" class="form-label">State/Province</label>
+                                            <input type="text" class="form-control" id="addressState" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="addressZip" class="form-label">Postal Code</label>
+                                            <input type="text" class="form-control" id="addressZip" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="addressCountry" class="form-label">Country</label>
+                                            <input type="text" class="form-control" id="addressCountry" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="addressPhone" class="form-label">Phone Number</label>
+                                            <input type="tel" class="form-control" id="addressPhone">
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="setDefaultAddress">
+                                                <label class="form-check-label" for="setDefaultAddress">Set as default address</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-primary">Save Address</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="cancelAddressBtn">Cancel</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <a href="/cart" class="btn btn-outline-secondary">Back to Cart</a>
+                                <button class="btn btn-primary" id="addressNextBtn">Continue to Payment</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 2. Payment Method -->
+                        <div class="tab-pane fade" id="payment" role="tabpanel" aria-labelledby="payment-tab">
+                            <h5 class="mb-3">Select Payment Method</h5>
+                            
+                            <div id="paymentLoader" class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading payment methods...</span>
+                                </div>
+                                <span class="ms-2">Loading payment methods...</span>
+                            </div>
+                            
+                            <div id="paymentList" class="d-none">
+                                <!-- Payment methods will be populated here -->
+                            </div>
+                            
+                            <div id="noPaymentMessage" class="alert alert-info mt-3 d-none">
+                                <p>You don't have any saved payment methods yet. Please add one to continue.</p>
+                            </div>
+                            
+                            <button class="btn btn-outline-primary mt-3" id="newPaymentBtn">
+                                <i class="bi bi-plus-circle"></i> Add New Payment Method
+                            </button>
+                            
+                            <div class="mt-4 d-none" id="paymentForm">
+                                <h6>Add New Payment Method</h6>
+                                <form id="newPaymentForm">
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label for="cardType" class="form-label">Payment Type</label>
+                                            <select class="form-select" id="cardType" required>
+                                                <option value="credit_card">Credit Card</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="cardNumber" class="form-label">Card Number</label>
+                                            <input type="text" class="form-control" id="cardNumber" placeholder="XXXX XXXX XXXX XXXX" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="cardName" class="form-label">Cardholder Name</label>
+                                            <input type="text" class="form-control" id="cardName" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="cardExpiry" class="form-label">Expiry Date</label>
+                                            <input type="text" class="form-control" id="cardExpiry" placeholder="MM/YY" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="cardCvv" class="form-label">CVV</label>
+                                            <input type="text" class="form-control" id="cardCvv" placeholder="XXX" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="billingAddress" class="form-label">Billing Address</label>
+                                            <textarea class="form-control" id="billingAddress" rows="2" required></textarea>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="setDefaultPayment">
+                                                <label class="form-check-label" for="setDefaultPayment">Set as default payment method</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-primary">Save Payment Method</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="cancelPaymentBtn">Cancel</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-outline-secondary" id="backToAddressBtn">Back to Shipping</button>
+                                <button class="btn btn-primary" id="paymentNextBtn">Continue to Review</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 3. Review Order -->
+                        <div class="tab-pane fade" id="review" role="tabpanel" aria-labelledby="review-tab">
+                            <h5 class="mb-3">Review Your Order</h5>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Shipping Address</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="reviewAddressContent">
+                                        <!-- Selected address will be shown here -->
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary mt-2" id="changeAddressBtn">Change</button>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Payment Method</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="reviewPaymentContent">
+                                        <!-- Selected payment method will be shown here -->
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary mt-2" id="changePaymentBtn">Change</button>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Order Items</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="list-group list-group-flush" id="reviewItemsList">
+                                        <!-- Cart items will be shown here -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-outline-secondary" id="backToPaymentBtn">Back to Payment</button>
+                                <button class="btn btn-primary" id="placeOrderBtn">Place Order</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Order Summary -->
+            <div class="card mb-4" id="orderSummaryCard">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div id="orderSummaryContent">
+                        <!-- Order summary will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Order Confirmation Modal -->
+    <div class="modal fade" id="orderConfirmationModal" tabindex="-1" aria-labelledby="orderConfirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="orderConfirmationModalLabel">Order Placed Successfully!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="py-4">
+                        <i class="bi bi-check-circle text-success" style="font-size: 4rem;"></i>
+                        <h4 class="mt-3">Thank You For Your Order</h4>
+                        <p class="text-muted" id="orderConfirmationMessage">
+                            Your order has been placed successfully.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <a href="/orders" class="btn btn-primary">View Your Orders</a>
+                    <a href="/" class="btn btn-outline-secondary">Continue Shopping</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables for checkout state
+    let cart = null;
+    let selectedAddressId = null;
+    let selectedPaymentId = null;
+    let addressList = [];
+    let paymentList = [];
+    let orderPlaced = false;
+    
+    // Bootstrap tabs
+    let addressTab = null;
+    let paymentTab = null;
+    let reviewTab = null;
+    
+    // Bootstrap modal
+    let confirmationModal = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap components
+        const tabElements = document.querySelectorAll('#checkoutTabs button');
+        tabElements.forEach(tab => {
+            tab.addEventListener('click', function(event) {
+                event.preventDefault();
+                
+                // Only allow tab navigation if previous steps are complete
+                if (tab.id === 'payment-tab' && !selectedAddressId) {
+                    alert('Please select a shipping address first');
+                    return false;
+                } else if (tab.id === 'review-tab' && (!selectedAddressId || !selectedPaymentId)) {
+                    alert('Please complete shipping and payment information first');
+                    return false;
+                }
+                
+                // Activate the selected tab
+                new bootstrap.Tab(tab).show();
+            });
+        });
+        
+        // Store tab references
+        addressTab = new bootstrap.Tab(document.getElementById('address-tab'));
+        paymentTab = new bootstrap.Tab(document.getElementById('payment-tab'));
+        reviewTab = new bootstrap.Tab(document.getElementById('review-tab'));
+        
+        // Initialize confirmation modal
+        confirmationModal = new bootstrap.Modal(document.getElementById('orderConfirmationModal'));
+        
+        // Check if logged in
+        const token = localStorage.getItem('ecomm_auth_token');
+        if (!token) {
+            // Not logged in
+            document.getElementById('checkoutLoader').classList.add('d-none');
+            document.getElementById('notLoggedInMessage').classList.remove('d-none');
+            return;
+        }
+        
+        // Setup button listeners
+        document.getElementById('newAddressBtn').addEventListener('click', showAddressForm);
+        document.getElementById('cancelAddressBtn').addEventListener('click', hideAddressForm);
+        document.getElementById('newAddressForm').addEventListener('submit', saveNewAddress);
+        
+        document.getElementById('newPaymentBtn').addEventListener('click', showPaymentForm);
+        document.getElementById('cancelPaymentBtn').addEventListener('click', hidePaymentForm);
+        document.getElementById('newPaymentForm').addEventListener('submit', saveNewPayment);
+        
+        document.getElementById('addressNextBtn').addEventListener('click', function() {
+            if (selectedAddressId) {
+                paymentTab.show();
+            } else {
+                alert('Please select a shipping address');
+            }
+        });
+        
+        document.getElementById('backToAddressBtn').addEventListener('click', function() {
+            addressTab.show();
+        });
+        
+        document.getElementById('paymentNextBtn').addEventListener('click', function() {
+            if (selectedPaymentId) {
+                reviewTab.show();
+                updateReviewStepContent();
+            } else {
+                alert('Please select a payment method');
+            }
+        });
+        
+        document.getElementById('backToPaymentBtn').addEventListener('click', function() {
+            paymentTab.show();
+        });
+        
+        document.getElementById('changeAddressBtn').addEventListener('click', function() {
+            addressTab.show();
+        });
+        
+        document.getElementById('changePaymentBtn').addEventListener('click', function() {
+            paymentTab.show();
+        });
+        
+        document.getElementById('placeOrderBtn').addEventListener('click', placeOrder);
+        
+        // Load checkout data
+        loadCheckoutData();
+    });
+    
+    async function loadCheckoutData() {
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            
+            // Fetch cart
+            const cartResponse = await fetch('/api/cart', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const cartData = await cartResponse.json();
+            
+            // Hide loader
+            document.getElementById('checkoutLoader').classList.add('d-none');
+            
+            if (!cartResponse.ok || cartData.status !== 'success' || !cartData.cart || !cartData.cart.items || cartData.cart.items.length === 0) {
+                // Empty cart
+                document.getElementById('emptyCartMessage').classList.remove('d-none');
+                return;
+            }
+            
+            // Store cart data
+            cart = cartData.cart;
+            
+            // Show checkout content
+            document.getElementById('checkoutContent').classList.remove('d-none');
+            
+            // Update order summary
+            updateOrderSummary();
+            
+            // Load addresses
+            loadAddresses();
+            
+            // Load payment methods
+            loadPaymentMethods();
+            
+        } catch (error) {
+            console.error('Error loading checkout data:', error);
+            document.getElementById('checkoutLoader').classList.add('d-none');
+            document.getElementById('emptyCartMessage').classList.remove('d-none');
+        }
+    }
+    
+    function updateOrderSummary() {
+        if (!cart) return;
+        
+        const summaryContent = document.getElementById('orderSummaryContent');
+        
+        let html = `
+            <h6 class="mb-3">Items (${cart.item_count || 0})</h6>
+            <div class="mb-3">
+        `;
+        
+        // Add each item with a short summary
+        cart.items.forEach(item => {
+            const productName = item.product ? item.product.name : 'Unknown Product';
+            const quantity = item.quantity || 1;
+            const price = item.discounted_price || item.original_price || 0;
+            
+            html += `
+                <div class="d-flex justify-content-between mb-2">
+                    <span>${quantity} x ${productName.substring(0, 20)}${productName.length > 20 ? '...' : ''}</span>
+                    <span>${formatPrice(price * quantity)}</span>
+                </div>
+            `;
+        });
+        
+        html += `
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Subtotal:</span>
+                <span>${formatPrice(cart.subtotal || 0)}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 text-success">
+                <span>Discounts:</span>
+                <span>-${formatPrice(cart.discount || 0)}</span>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between mb-3 fw-bold">
+                <span>Total:</span>
+                <span>${formatPrice(cart.total_price || 0)}</span>
+            </div>
+        `;
+        
+        summaryContent.innerHTML = html;
+    }
+    
+    async function loadAddresses() {
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            
+            // Show loader
+            document.getElementById('addressLoader').classList.remove('d-none');
+            document.getElementById('addressList').classList.add('d-none');
+            document.getElementById('noAddressMessage').classList.add('d-none');
+            
+            // Fetch addresses
+            const response = await fetch('/api/addresses', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            // Hide loader
+            document.getElementById('addressLoader').classList.add('d-none');
+            
+            if (response.ok && data.status === 'success') {
+                addressList = data.addresses || [];
+                
+                if (addressList.length === 0) {
+                    // No addresses
+                    document.getElementById('noAddressMessage').classList.remove('d-none');
+                } else {
+                    // Render address list
+                    renderAddressList();
+                    document.getElementById('addressList').classList.remove('d-none');
+                }
+            } else {
+                document.getElementById('noAddressMessage').classList.remove('d-none');
+                console.error('Error loading addresses:', data.message);
+            }
+        } catch (error) {
+            console.error('Error loading addresses:', error);
+            document.getElementById('addressLoader').classList.add('d-none');
+            document.getElementById('noAddressMessage').classList.remove('d-none');
+        }
+    }
+    
+    function renderAddressList() {
+        const addressListElement = document.getElementById('addressList');
+        addressListElement.innerHTML = '';
+        
+        // Find default address
+        const defaultAddress = addressList.find(addr => addr.is_default);
+        
+        // If we have a default address and no address is selected yet, select the default
+        if (defaultAddress && !selectedAddressId) {
+            selectedAddressId = defaultAddress.address_id;
+        }
+        
+        addressList.forEach(address => {
+            const isSelected = address.address_id === selectedAddressId;
+            
+            const addressElement = document.createElement('div');
+            addressElement.className = `card mb-2 address-card ${isSelected ? 'border-primary' : ''}`;
+            addressElement.setAttribute('data-address-id', address.address_id);
+            
+            // Format address
+            const addressLine2 = address.address_line2 ? `${address.address_line2}<br>` : '';
+            
+            addressElement.innerHTML = `
+                <div class="card-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="shippingAddress" 
+                               id="address${address.address_id}" ${isSelected ? 'checked' : ''}>
+                        <label class="form-check-label" for="address${address.address_id}">
+                            <strong>${address.name}</strong>
+                            ${address.is_default ? '<span class="badge bg-info ms-2">Default</span>' : ''}
+                            <br>
+                            ${address.address_line1}<br>
+                            ${addressLine2}
+                            ${address.city}, ${address.state} ${address.postal_code}<br>
+                            ${address.country}
+                            ${address.phone_number ? `<br>Phone: ${address.phone_number}` : ''}
+                        </label>
+                    </div>
+                </div>
+            `;
+            
+            addressListElement.appendChild(addressElement);
+            
+            // Add click event to select address
+            addressElement.addEventListener('click', function() {
+                selectedAddressId = address.address_id;
+                updateAddressSelection();
+            });
+        });
+    }
+    
+    function updateAddressSelection() {
+        // Update visual selection
+        const addressCards = document.querySelectorAll('.address-card');
+        addressCards.forEach(card => {
+            const addressId = card.getAttribute('data-address-id');
+            const radio = card.querySelector('input[type="radio"]');
+            
+            if (addressId === selectedAddressId) {
+                card.classList.add('border-primary');
+                radio.checked = true;
+            } else {
+                card.classList.remove('border-primary');
+                radio.checked = false;
+            }
+        });
+    }
+    
+    function showAddressForm() {
+        document.getElementById('addressForm').classList.remove('d-none');
+        document.getElementById('newAddressBtn').classList.add('d-none');
+    }
+    
+    function hideAddressForm() {
+        document.getElementById('addressForm').classList.add('d-none');
+        document.getElementById('newAddressBtn').classList.remove('d-none');
+        document.getElementById('newAddressForm').reset();
+    }
+    
+    async function saveNewAddress(event) {
+        event.preventDefault();
+        
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            
+            const addressData = {
+                name: document.getElementById('addressName').value,
+                address_line1: document.getElementById('addressLine1').value,
+                address_line2: document.getElementById('addressLine2').value,
+                city: document.getElementById('addressCity').value,
+                state: document.getElementById('addressState').value,
+                postal_code: document.getElementById('addressZip').value,
+                country: document.getElementById('addressCountry').value,
+                phone_number: document.getElementById('addressPhone').value,
+                is_default: document.getElementById('setDefaultAddress').checked
+            };
+            
+            const response = await fetch('/api/addresses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(addressData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                // Hide form
+                hideAddressForm();
+                
+                // Reload addresses
+                await loadAddresses();
+                
+                // Select the new address
+                selectedAddressId = data.address_id;
+                updateAddressSelection();
+            } else {
+                alert(data.message || 'Failed to save address');
+            }
+        } catch (error) {
+            console.error('Error saving address:', error);
+            alert('An error occurred while saving your address');
+        }
+    }
+    
+    async function loadPaymentMethods() {
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            
+            // Show loader
+            document.getElementById('paymentLoader').classList.remove('d-none');
+            document.getElementById('paymentList').classList.add('d-none');
+            document.getElementById('noPaymentMessage').classList.add('d-none');
+            
+            // Fetch payment methods
+            const response = await fetch('/api/payment-methods', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            // Hide loader
+            document.getElementById('paymentLoader').classList.add('d-none');
+            
+            if (response.ok && data.status === 'success') {
+                paymentList = data.payment_methods || [];
+                
+                if (paymentList.length === 0) {
+                    // No payment methods
+                    document.getElementById('noPaymentMessage').classList.remove('d-none');
+                } else {
+                    // Render payment method list
+                    renderPaymentList();
+                    document.getElementById('paymentList').classList.remove('d-none');
+                }
+            } else {
+                document.getElementById('noPaymentMessage').classList.remove('d-none');
+                console.error('Error loading payment methods:', data.message);
+            }
+        } catch (error) {
+            console.error('Error loading payment methods:', error);
+            document.getElementById('paymentLoader').classList.add('d-none');
+            document.getElementById('noPaymentMessage').classList.remove('d-none');
+        }
+    }
+    
+    function renderPaymentList() {
+        const paymentListElement = document.getElementById('paymentList');
+        paymentListElement.innerHTML = '';
+        
+        // Find default payment method
+        const defaultPayment = paymentList.find(payment => payment.is_default);
+        
+        // If we have a default payment and no payment is selected yet, select the default
+        if (defaultPayment && !selectedPaymentId) {
+            selectedPaymentId = defaultPayment.payment_method_id;
+        }
+        
+        paymentList.forEach(payment => {
+            const isSelected = payment.payment_method_id === selectedPaymentId;
+            
+            const paymentElement = document.createElement('div');
+            paymentElement.className = `card mb-2 payment-card ${isSelected ? 'border-primary' : ''}`;
+            paymentElement.setAttribute('data-payment-id', payment.payment_method_id);
+            
+            // Determine card icon
+            let cardIcon = 'bi-credit-card';
+            if (payment.card_type) {
+                if (payment.card_type.toLowerCase().includes('visa')) {
+                    cardIcon = 'bi-credit-card';
+                } else if (payment.card_type.toLowerCase().includes('mastercard')) {
+                    cardIcon = 'bi-credit-card-2-front';
+                } else if (payment.card_type.toLowerCase().includes('american express')) {
+                    cardIcon = 'bi-credit-card-2-back';
+                }
+            }
+            
+            paymentElement.innerHTML = `
+                <div class="card-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="paymentMethod" 
+                               id="payment${payment.payment_method_id}" ${isSelected ? 'checked' : ''}>
+                        <label class="form-check-label" for="payment${payment.payment_method_id}">
+                            <div class="d-flex align-items-center">
+                                <i class="bi ${cardIcon} me-2" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>${payment.card_type || 'Credit Card'}</strong> ending in ${payment.card_number}
+                                    ${payment.is_default ? '<span class="badge bg-info ms-2">Default</span>' : ''}
+                                    <br>
+                                    <small class="text-muted">
+                                        ${payment.card_holder_name} | Expires: ${payment.expiry_date}
+                                    </small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            `;
+            
+            paymentListElement.appendChild(paymentElement);
+            
+            // Add click event to select payment method
+            paymentElement.addEventListener('click', function() {
+                selectedPaymentId = payment.payment_method_id;
+                updatePaymentSelection();
+            });
+        });
+    }
+    
+    function updatePaymentSelection() {
+        // Update visual selection
+        const paymentCards = document.querySelectorAll('.payment-card');
+        paymentCards.forEach(card => {
+            const paymentId = card.getAttribute('data-payment-id');
+            const radio = card.querySelector('input[type="radio"]');
+            
+            if (paymentId === selectedPaymentId) {
+                card.classList.add('border-primary');
+                radio.checked = true;
+            } else {
+                card.classList.remove('border-primary');
+                radio.checked = false;
+            }
+        });
+    }
+    
+    function showPaymentForm() {
+        document.getElementById('paymentForm').classList.remove('d-none');
+        document.getElementById('newPaymentBtn').classList.add('d-none');
+    }
+    
+    function hidePaymentForm() {
+        document.getElementById('paymentForm').classList.add('d-none');
+        document.getElementById('newPaymentBtn').classList.remove('d-none');
+        document.getElementById('newPaymentForm').reset();
+    }
+    
+    async function saveNewPayment(event) {
+        event.preventDefault();
+        
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            
+            const paymentData = {
+                method_type: document.getElementById('cardType').value,
+                card_number: document.getElementById('cardNumber').value,
+                card_holder_name: document.getElementById('cardName').value,
+                expiry_date: document.getElementById('cardExpiry').value,
+                billing_address: document.getElementById('billingAddress').value,
+                is_default: document.getElementById('setDefaultPayment').checked
+            };
+            
+            const response = await fetch('/api/payment-methods', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(paymentData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                // Hide form
+                hidePaymentForm();
+                
+                // Reload payment methods
+                await loadPaymentMethods();
+                
+                // Select the new payment method
+                selectedPaymentId = data.payment_method_id;
+                updatePaymentSelection();
+            } else {
+                alert(data.message || 'Failed to save payment method');
+            }
+        } catch (error) {
+            console.error('Error saving payment method:', error);
+            alert('An error occurred while saving your payment method');
+        }
+    }
+    
+    function updateReviewStepContent() {
+        // Update selected address in review step
+        const selectedAddress = addressList.find(addr => addr.address_id === selectedAddressId);
+        if (selectedAddress) {
+            const addressLine2 = selectedAddress.address_line2 ? `${selectedAddress.address_line2}<br>` : '';
+            
+            document.getElementById('reviewAddressContent').innerHTML = `
+                <strong>${selectedAddress.name}</strong><br>
+                ${selectedAddress.address_line1}<br>
+                ${addressLine2}
+                ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}<br>
+                ${selectedAddress.country}
+                ${selectedAddress.phone_number ? `<br>Phone: ${selectedAddress.phone_number}` : ''}
+            `;
+        }
+        
+        // Update selected payment method in review step
+        const selectedPayment = paymentList.find(payment => payment.payment_method_id === selectedPaymentId);
+        if (selectedPayment) {
+            let cardIcon = 'bi-credit-card';
+            if (selectedPayment.card_type) {
+                if (selectedPayment.card_type.toLowerCase().includes('visa')) {
+                    cardIcon = 'bi-credit-card';
+                } else if (selectedPayment.card_type.toLowerCase().includes('mastercard')) {
+                    cardIcon = 'bi-credit-card-2-front';
+                } else if (selectedPayment.card_type.toLowerCase().includes('american express')) {
+                    cardIcon = 'bi-credit-card-2-back';
+                }
+            }
+            
+            document.getElementById('reviewPaymentContent').innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi ${cardIcon} me-2" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <strong>${selectedPayment.card_type || 'Credit Card'}</strong> ending in ${selectedPayment.card_number}
+                        <br>
+                        <small class="text-muted">
+                            ${selectedPayment.card_holder_name} | Expires: ${selectedPayment.expiry_date}
+                        </small>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update order items in review step
+        const reviewItemsList = document.getElementById('reviewItemsList');
+        reviewItemsList.innerHTML = '';
+        
+        if (cart && cart.items) {
+            cart.items.forEach(item => {
+                const productName = item.product ? item.product.name : 'Unknown Product';
+                const quantity = item.quantity || 1;
+                const originalPrice = item.original_price || 0;
+                const discountedPrice = item.discounted_price || originalPrice;
+                const hasDiscount = originalPrice > discountedPrice;
+                const productImage = item.product && item.product.image_url 
+                    ? `/api/storage/serve/${item.product.image_url}` 
+                    : 'https://placehold.co/100x100?text=No+Image';
+                
+                const itemElement = document.createElement('div');
+                itemElement.className = 'list-group-item py-3';
+                itemElement.innerHTML = `
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <img src="${productImage}" alt="${productName}" class="img-thumbnail" style="width: 60px; height: 60px; object-fit: contain;">
+                        </div>
+                        <div class="col">
+                            <h6 class="mb-1">${productName}</h6>
+                            <small class="text-muted">Quantity: ${quantity}</small>
+                        </div>
+                        <div class="col-auto text-end">
+                            ${hasDiscount ? `
+                                <span class="text-muted text-decoration-line-through">${formatPrice(originalPrice)}</span><br>
+                                <span class="text-danger fw-bold">${formatPrice(discountedPrice)}</span>
+                            ` : `
+                                <span class="fw-bold">${formatPrice(originalPrice)}</span>
+                            `}
+                        </div>
+                    </div>
+                `;
+                
+                reviewItemsList.appendChild(itemElement);
+            });
+        }
+    }
+    
+    async function placeOrder() {
+        if (orderPlaced) {
+            alert('Your order has already been placed');
+            return;
+        }
+        
+        // Disable button to prevent multiple submissions
+        const placeOrderBtn = document.getElementById('placeOrderBtn');
+        placeOrderBtn.disabled = true;
+        placeOrderBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+        
+        try {
+            const token = localStorage.getItem('ecomm_auth_token');
+            
+            const orderData = {
+                payment_method_id: selectedPaymentId,
+                address_id: selectedAddressId
+            };
+            
+            const response = await fetch('/api/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(orderData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                // Order placed successfully
+                orderPlaced = true;
+                
+                // Show confirmation modal
+                document.getElementById('orderConfirmationMessage').textContent = data.message || 'Your order has been placed successfully.';
+                confirmationModal.show();
+                
+                // Add event listener for when modal is hidden
+                const modalElement = document.getElementById('orderConfirmationModal');
+                modalElement.addEventListener('hidden.bs.modal', function () {
+                    // Redirect to orders page
+                    window.location.href = '/orders';
+                });
+            } else {
+                // Re-enable button
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.innerHTML = 'Place Order';
+                
+                // Show error
+                alert(data.message || 'Failed to place order');
+            }
+        } catch (error) {
+            console.error('Error placing order:', error);
+            
+            // Re-enable button
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.innerHTML = 'Place Order';
+            
+            alert('An error occurred while placing your order');
+        }
+    }
+    
+    function formatPrice(price) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(price);
+    }
+</script>
+{% endblock %}

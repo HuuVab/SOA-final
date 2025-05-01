@@ -1,0 +1,288 @@
+{% extends "layout.html" %}
+
+{% block title %}My Account{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">My Account</h1>
+    </div>
+</div>
+
+<div class="row" id="accountContainer">
+    <!-- This will be populated by JavaScript -->
+    <div class="col-12 text-center py-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Loading account information...</p>
+    </div>
+</div>
+
+<div class="row d-none" id="notLoggedInMessage">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <h4 class="alert-heading">You are not logged in</h4>
+            <p>Please log in to view your account information.</p>
+            <hr>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#registerModal">Register</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row d-none" id="accountContent">
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Account Information</h5>
+            </div>
+            <div class="card-body">
+                <div id="accountProfileAlert" class="alert alert-success d-none"></div>
+                <div class="mb-3 text-center">
+                    <div class="avatar-placeholder bg-light rounded-circle d-inline-flex justify-content-center align-items-center mb-2" style="width: 100px; height: 100px; font-size: 40px;">
+                        <i class="bi bi-person"></i>
+                    </div>
+                    <h4 id="accountFullName">John Doe</h4>
+                    <p id="accountEmail" class="text-muted">john@example.com</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Contact Information</h6>
+                    <p class="mb-1"><strong>Phone:</strong> <span id="accountPhone">Not provided</span></p>
+                    <p class="mb-0"><strong>Address:</strong> <span id="accountAddress">Not provided</span></p>
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="editProfileBtn" data-bs-toggle="modal" data-bs-target="#profileModal">
+                        <i class="bi bi-pencil-square"></i> Edit Profile
+                    </button>
+                    <button class="btn btn-outline-primary" id="changePasswordBtn" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                        <i class="bi bi-key"></i> Change Password
+                    </button>
+                    <button class="btn btn-outline-danger" id="accountLogoutBtn">
+                        <i class="bi bi-box-arrow-right"></i> Log Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">My Orders</h5>
+            </div>
+            <div class="card-body">
+                <div id="ordersContainer">
+                    <!-- Will be populated by JavaScript -->
+                    <div class="text-center py-4">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading orders...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if logged in
+        const token = localStorage.getItem('ecomm_auth_token');
+        const userData = localStorage.getItem('ecomm_user_data');
+        
+        if (!token || !userData) {
+            // Not logged in
+            document.getElementById('accountContainer').classList.add('d-none');
+            document.getElementById('notLoggedInMessage').classList.remove('d-none');
+            return;
+        }
+        
+        // Validate token
+        validateToken(token);
+        
+        // Set up logout button
+        document.getElementById('accountLogoutBtn').addEventListener('click', handleLogout);
+    });
+    
+    async function validateToken(token) {
+        try {
+            const response = await fetch('/api/customers/validate-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ token })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.valid) {
+                // Token is valid, show account content
+                document.getElementById('accountContainer').classList.add('d-none');
+                document.getElementById('accountContent').classList.remove('d-none');
+                
+                // Populate account data
+                populateAccountData(data.customer);
+                
+                // Load orders
+                loadOrders(token);
+            } else if (data.verification_required) {
+                // Redirect to verification page
+                localStorage.setItem('email_to_verify', data.email);
+                window.location.href = '/verify-email';
+            } else {
+                // Invalid token, show login message
+                document.getElementById('accountContainer').classList.add('d-none');
+                document.getElementById('notLoggedInMessage').classList.remove('d-none');
+                
+                // Clear storage
+                localStorage.removeItem('ecomm_auth_token');
+                localStorage.removeItem('ecomm_user_data');
+            }
+        } catch (error) {
+            console.error('Error validating token:', error);
+            document.getElementById('accountContainer').classList.add('d-none');
+            document.getElementById('notLoggedInMessage').classList.remove('d-none');
+        }
+    }
+    
+    function populateAccountData(customer) {
+        // Set full name
+        document.getElementById('accountFullName').textContent = `${customer.first_name} ${customer.last_name}`;
+        
+        // Set email
+        document.getElementById('accountEmail').textContent = customer.email;
+        
+        // Set phone
+        const phoneElement = document.getElementById('accountPhone');
+        if (customer.phone) {
+            phoneElement.textContent = customer.phone;
+        } else {
+            phoneElement.textContent = 'Not provided';
+        }
+        
+        // Set address
+        const addressElement = document.getElementById('accountAddress');
+        if (customer.address) {
+            addressElement.textContent = customer.address;
+        } else {
+            addressElement.textContent = 'Not provided';
+        }
+    }
+    
+    async function loadOrders(token) {
+        try {
+            const response = await fetch('/api/customers/orders', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            const ordersContainer = document.getElementById('ordersContainer');
+            
+            if (response.ok) {
+                const orders = data.data || [];
+                
+                if (orders.length === 0) {
+                    // No orders
+                    ordersContainer.innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="mb-3">
+                                <i class="bi bi-bag-x" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5>No Orders Yet</h5>
+                            <p class="text-muted">You haven't placed any orders yet.</p>
+                            <a href="/products" class="btn btn-primary">Start Shopping</a>
+                        </div>
+                    `;
+                } else {
+                    // Create orders list
+                    let ordersHTML = `
+                        <div class="list-group">
+                    `;
+                    
+                    orders.forEach(order => {
+                        const orderDate = new Date(order.created_at).toLocaleDateString();
+                        const orderStatus = order.status || 'Processing';
+                        const statusClass = getStatusClass(orderStatus);
+                        
+                        ordersHTML += `
+                            <a href="/orders/${order.order_id}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">Order #${order.order_id.substring(0, 8)}</h5>
+                                    <small>${orderDate}</small>
+                                </div>
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <p class="mb-1">${order.items ? order.items.length : 0} items - Total: $${order.total_amount.toFixed(2)}</p>
+                                    <span class="badge ${statusClass}">${orderStatus}</span>
+                                </div>
+                            </a>
+                        `;
+                    });
+                    
+                    ordersHTML += `</div>`;
+                    ordersContainer.innerHTML = ordersHTML;
+                }
+            } else {
+                // Error loading orders
+                ordersContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <p class="mb-0">Error loading orders: ${data.message || 'Unknown error'}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            document.getElementById('ordersContainer').innerHTML = `
+                <div class="alert alert-danger">
+                    <p class="mb-0">Error loading orders. Please try again later.</p>
+                </div>
+            `;
+        }
+    }
+    
+    function getStatusClass(status) {
+        switch (status.toLowerCase()) {
+            case 'processing':
+                return 'bg-warning text-dark';
+            case 'shipped':
+                return 'bg-info text-dark';
+            case 'delivered':
+                return 'bg-success';
+            case 'cancelled':
+                return 'bg-danger';
+            default:
+                return 'bg-secondary';
+        }
+    }
+    
+    async function handleLogout() {
+        const token = localStorage.getItem('ecomm_auth_token');
+        
+        try {
+            // Call logout API
+            await fetch('/api/customers/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            // Always logout locally even if API call fails
+            localStorage.removeItem('ecomm_auth_token');
+            localStorage.removeItem('ecomm_user_data');
+            
+            // Redirect to home page
+            window.location.href = '/';
+        }
+    }
+</script>
+{% endblock %}

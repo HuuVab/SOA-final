@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,8 +42,19 @@
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
                             <a class="nav-link" href="/cart">
-                                <i class="bi bi-cart"></i> Cart <span class="badge bg-light text-dark">0</span>
+                                <i class="bi bi-cart"></i> Cart <span class="badge bg-danger text-white" id="cartCount">0</span>
                             </a>
+                        </li>
+                        <!-- Add login/account button -->
+                        <li class="nav-item dropdown" id="accountNavItem">
+                            <a class="nav-link dropdown-toggle" href="#" id="accountDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-person"></i> <span id="accountText">Account</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" id="accountMenu">
+                                <!-- Will be populated by JavaScript based on authentication state -->
+                                <li><a class="dropdown-item" href="#" id="loginBtn" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a></li>
+                                <li><a class="dropdown-item" href="#" id="registerBtn" data-bs-toggle="modal" data-bs-target="#registerModal">Register</a></li>
+                            </ul>
                         </li>
                     </ul>
                 </div>
@@ -55,6 +65,189 @@
     <main class="container py-4">
         {% block content %}{% endblock %}
     </main>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Log In</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="loginAlert" class="alert alert-danger d-none"></div>
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="loginEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-primary">Log In</button>
+                            <a href="#" id="forgotPasswordLink">Forgot password?</a>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <p class="w-100 text-center mb-0">Don't have an account? <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal">Register</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="registerModalLabel">Create Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="registerAlert" class="alert alert-danger d-none"></div>
+                    <form id="registerForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="registerFirstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="registerFirstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="registerLastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="registerLastName" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="registerEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="registerPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPhone" class="form-label">Phone (Optional)</label>
+                            <input type="tel" class="form-control" id="registerPhone">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <p class="w-100 text-center mb-0">Already have an account? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Log In</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verification Modal -->
+    <div class="modal fade" id="verificationModal" tabindex="-1" aria-labelledby="verificationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="verificationModalLabel">Verify Your Email</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="verificationAlert" class="alert alert-danger d-none"></div>
+                    <div class="alert alert-info">
+                        We've sent a verification code to your email. Please check your inbox and enter the code below.
+                    </div>
+                    <form id="verificationForm">
+                        <input type="hidden" id="verificationEmail">
+                        <div class="mb-3">
+                            <label for="verificationCode" class="form-label">Verification Code</label>
+                            <input type="text" class="form-control" id="verificationCode" required>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">Verify</button>
+                            <button type="button" id="resendCodeBtn" class="btn btn-link">Resend Code</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="profileModalLabel">My Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="profileAlert" class="alert alert-success d-none"></div>
+                    <form id="profileForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="profileFirstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="profileFirstName">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="profileLastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="profileLastName">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profileEmail" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="profileEmail" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profilePhone" class="form-label">Phone</label>
+                            <input type="tel" class="form-control" id="profilePhone">
+                        </div>
+                        <div class="mb-3">
+                            <label for="profileAddress" class="form-label">Address</label>
+                            <textarea class="form-control" id="profileAddress" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <div class="w-100">
+                        <button type="button" class="btn btn-outline-danger" id="logoutBtn">Log Out</button>
+                        <button type="button" class="btn btn-link float-end" data-bs-toggle="modal" data-bs-target="#changePasswordModal" data-bs-dismiss="modal">Change Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changePasswordModalLabel">Change Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="passwordAlert" class="alert alert-danger d-none"></div>
+                    <form id="passwordForm">
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#profileModal" data-bs-dismiss="modal">Back to Profile</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <footer class="bg-dark text-light py-4">
         <div class="container">
@@ -89,7 +282,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-```

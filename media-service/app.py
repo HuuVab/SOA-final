@@ -184,7 +184,8 @@ class MediaService:
         try:
             # Check if tables exist
             tables_url = f"{self.db_service_url}/tables"
-            response = requests.get(tables_url)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(tables_url,headers=headers)
             
             if response.status_code == 200:
                 data = response.json()
@@ -234,10 +235,11 @@ class MediaService:
                 "created_at": "TEXT",
                 "updated_at": "TEXT"
             }
-            
+            headers = {'X-Database-Name': self.db_name}
             response = requests.post(
                 create_table_url, 
-                json={"table_name": "articles", "columns": columns}
+                json={"table_name": "articles", "columns": columns},
+                headers=headers
             )
             
             if response.status_code != 200:
@@ -269,10 +271,11 @@ class MediaService:
                 "created_at": "TEXT",
                 "FOREIGN KEY (article_id)": "REFERENCES articles(article_id) ON DELETE CASCADE"
             }
-            
+            headers = {'X-Database-Name': self.db_name}
             response = requests.post(
                 create_table_url, 
-                json={"table_name": "images", "columns": columns}
+                json={"table_name": "images", "columns": columns},
+                headers=headers
             )
             
             if response.status_code != 200:
@@ -296,10 +299,11 @@ class MediaService:
                 "description": "TEXT",
                 "created_at": "TEXT"
             }
-            
+            headers = {'X-Database-Name': self.db_name}
             response = requests.post(
                 create_table_url, 
-                json={"table_name": "tags", "columns": columns}
+                json={"table_name": "tags", "columns": columns},
+                headers=headers
             )
             
             if response.status_code != 200:
@@ -323,10 +327,11 @@ class MediaService:
                 "FOREIGN KEY (article_id)": "REFERENCES articles(article_id) ON DELETE CASCADE",
                 "FOREIGN KEY (tag_id)": "REFERENCES tags(tag_id) ON DELETE CASCADE"
             }
-            
+            headers = {'X-Database-Name': self.db_name}
             response = requests.post(
                 create_table_url, 
-                json={"table_name": "article_tags", "columns": columns}
+                json={"table_name": "article_tags", "columns": columns},
+                headers=headers
             )
             
             if response.status_code != 200:
@@ -346,8 +351,8 @@ class MediaService:
             payload = {"query": query}
             if params:
                 payload["params"] = params
-            
-            response = requests.post(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers, json=payload)
             return response.json() if response.status_code == 200 else None
         except Exception as e:
             logger.error(f"Error executing query: {e}")
@@ -392,12 +397,12 @@ class MediaService:
             request_params = {
                 "columns": "article_id, title, summary, type, author, published_date, status, featured, featured_image_id, view_count, created_at, updated_at"
             }
-            
+            headers = {'X-Database-Name': self.db_name}
             if condition_str:
                 request_params["condition"] = condition_str
                 request_params["params"] = ",".join(params)
             
-            response = requests.get(url, params=request_params)
+            response = requests.get(url, headers=headers,params=request_params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -441,7 +446,8 @@ class MediaService:
             # Get article
             url = f"{self.db_service_url}/tables/articles/data"
             params = {"condition": "article_id = ?", "params": article_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url, headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -540,7 +546,8 @@ class MediaService:
             
             # Insert article into database
             url = f"{self.db_service_url}/tables/articles/data"
-            response = requests.post(url, json=article_data)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers, json=article_data)
             
             if response.status_code != 200:
                 return {
@@ -608,8 +615,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url, headers=headers, json=payload)
             
             if response.status_code != 200:
                 return {
@@ -670,8 +677,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url,headers=headers, json=payload)
             
             if response.status_code == 200:
                 return {
@@ -715,8 +722,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url, headers=headers, json=payload)
             
             if response.status_code == 200:
                 return self.get_article(article_id)
@@ -755,8 +762,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url,headers=headers, json=payload)
             
             if response.status_code == 200:
                 return self.get_article(article_id)
@@ -884,8 +891,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url,headers=headers, json=payload)
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Error setting featured image for article {article_id}: {e}")
@@ -920,7 +927,8 @@ class MediaService:
             
             # Insert image into database
             url = f"{self.db_service_url}/tables/images/data"
-            response = requests.post(url, json=image_data)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers, json=image_data)
             
             if response.status_code == 200:
                 return {
@@ -947,7 +955,8 @@ class MediaService:
             
             url = f"{self.db_service_url}/tables/images/data"
             params = {"condition": "image_id = ?", "params": image_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -983,7 +992,8 @@ class MediaService:
             
             url = f"{self.db_service_url}/tables/images/data"
             params = {"condition": "article_id = ?", "params": article_id}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -1021,8 +1031,8 @@ class MediaService:
                 "condition": "image_id = ?",
                 "params": [image_id]
             }
-            
-            response = requests.put(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.put(url,headers=headers, json=payload)
             
             if response.status_code == 200:
                 return self.get_image(image_id)
@@ -1059,7 +1069,8 @@ class MediaService:
                     "condition": "article_id = ? AND featured_image_id = ?", 
                     "params": f"{image_data['article_id']},{image_id}"
                 }
-                article_response = requests.get(article_url, params=article_params)
+                headers = {'X-Database-Name': self.db_name}
+                article_response = requests.get(article_url, headers=headers, params=article_params)
                 
                 if article_response.status_code == 200:
                     article_result = article_response.json()
@@ -1099,8 +1110,8 @@ class MediaService:
                 "condition": "image_id = ?",
                 "params": [image_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url,headers=headers, json=payload)
             
             if response.status_code == 200:
                 return {
@@ -1147,8 +1158,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url,headers=headers, json=payload)
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Error removing images from article {article_id}: {e}")
@@ -1167,7 +1178,8 @@ class MediaService:
             # Check if tag exists
             url = f"{self.db_service_url}/tables/tags/data"
             params = {"condition": "name = ?", "params": tag_name}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -1190,7 +1202,8 @@ class MediaService:
                     }
                     
                     create_url = f"{self.db_service_url}/tables/tags/data"
-                    create_response = requests.post(create_url, json=tag_data)
+                    headers = {'X-Database-Name': self.db_name}
+                    create_response = requests.post(create_url,headers=headers, json=tag_data)
                     
                     if create_response.status_code == 200:
                         return {
@@ -1218,7 +1231,8 @@ class MediaService:
             # Check if the association already exists
             url = f"{self.db_service_url}/tables/article_tags/data"
             params = {"condition": "article_id = ? AND tag_id = ?", "params": f"{article_id},{tag_id}"}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code == 200:
                 result = response.json()
@@ -1232,7 +1246,7 @@ class MediaService:
                     "tag_id": tag_id
                 }
                 
-                create_response = requests.post(url, json=association_data)
+                create_response = requests.post(url,headers=headers, json=association_data)
                 return create_response.status_code == 200
             else:
                 return False
@@ -1248,8 +1262,8 @@ class MediaService:
                 "condition": "article_id = ?",
                 "params": [article_id]
             }
-            
-            response = requests.delete(url, json=payload)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.delete(url,headers=headers, json=payload)
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Error removing tags from article {article_id}: {e}")
@@ -1297,7 +1311,8 @@ class MediaService:
                     self.init_tables()
             
             url = f"{self.db_service_url}/tables/tags/data"
-            response = requests.get(url)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers)
             
             if response.status_code == 200:
                 result = response.json()
@@ -1326,7 +1341,8 @@ class MediaService:
             # First get the tag ID from the slug
             url = f"{self.db_service_url}/tables/tags/data"
             params = {"condition": "slug = ?", "params": tag_slug}
-            response = requests.get(url, params=params)
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.get(url,headers=headers, params=params)
             
             if response.status_code != 200:
                 return {

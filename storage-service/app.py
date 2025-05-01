@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,send_from_directory
 import os
 import logging
 import uuid
 import requests
 from datetime import datetime
 from flask_cors import CORS
-
+from werkzeug.utils import secure_filename
+import shutil
+import mimetypes
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -174,8 +176,6 @@ class ProductStorage:
             payload = {"query": query}
             if params:
                 payload["params"] = params
-            
-           
             headers = {'X-Database-Name': self.db_name}
             
             response = requests.post(url, json=payload, headers=headers)
@@ -187,6 +187,7 @@ class ProductStorage:
     def allowed_file(self, filename):
         """Check if a filename has an allowed extension"""
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
     def generate_product_image_path(self, product_id, filename):
         """Generate a unique filepath for an uploaded product image"""
         # Secure the filename to prevent directory traversal attacks
@@ -296,7 +297,41 @@ class ProductStorage:
         except Exception as e:
             logger.error(f"Error handling product image upload: {e}")
             return {"status": "error", "message": str(e)}    
-
+    def add_product_image(self, image_data):
+        """Add a product image record to the database"""
+        try:
+            if not self.initialized:
+                self.connect_to_db()
+                if self.initialized:
+                    self.init_storage()
+            
+            # Ensure image_id is set
+            if 'image_id' not in image_data:
+                image_data['image_id'] = str(uuid.uuid4())
+                
+            # Ensure created_at is set
+            if 'created_at' not in image_data:
+                image_data['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Insert into database
+            url = f"{self.db_service_url}/tables/product_images/data"
+            headers = {'X-Database-Name': self.db_name}
+            response = requests.post(url, headers=headers, json=image_data)
+            
+            if response.status_code == 200:
+                return {
+                    "status": "success",
+                    "message": f"Image {image_data['image_id']} added successfully",
+                    "data": image_data
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Error adding image: {response.text}"
+                }
+        except Exception as e:
+            logger.error(f"Error adding product image: {e}")
+            return {"status": "error", "message": str(e)}
     def get_product_image(self, image_id):
         """Get a specific product image by ID"""
         try:
@@ -626,7 +661,7 @@ class ProductStorage:
             # Insert into database
             url = f"{self.db_service_url}/tables/products/data"
             headers = {'X-Database-Name': self.db_name}
-            response = requests.post(url, json=db_data, headers=headers)
+            response = requests.post(url,headers=headers, json=db_data)
             
             if response.status_code != 200:
                 return {
@@ -1071,12 +1106,31 @@ def set_primary_image(image_id):
 
 @app.route('/api/storage/serve/<path:filepath>', methods=['GET'])
 def serve_storage_file(filepath):
-    """Serve storage files - note: for development purposes only"""
+    """Serve storage files"""
     try:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filepath)
+        # Log the request for debugging
+        full_path = os.path.join(app.config['UPLOAD_FOLDER'], filepath)
+        print(f"Attempting to serve: {full_path}")
+        
+        # Check if file exists
+        if not os.path.isfile(full_path):
+            print(f"File not found: {full_path}")
+            return jsonify({"status": "error", "message": "File not found"}), 404
+        
+        # Get the directory and filename separately
+        directory = os.path.dirname(full_path)
+        filename = os.path.basename(full_path)
+        
+        # Make sure directory exists
+        if not os.path.isdir(directory):
+            print(f"Directory not found: {directory}")
+            return jsonify({"status": "error", "message": "Directory not found"}), 404
+            
+        # Send file from the specific directory, not the base UPLOAD_FOLDER
+        return send_from_directory(directory, filename)
     except Exception as e:
-        logger.error(f"Error serving storage file {filepath}: {e}")
-        return jsonify({"status": "error", "message": "File not found"}), 404
+        print(f"Error serving file: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
@@ -1225,7 +1279,55 @@ def health_check():
     except Exception as e:
         logger.error(f"Error in health_check route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+@app.route('/api/storage/debug', methods=['GET'])
+def debug_storage():
+    """List contents of storage directory for debugging"""
+    try:
+        base_dir = app.config['UPLOAD_FOLDER']
+        result = {"status": "success", "base_dir": base_dir}
+        
+        # Check if products directory exists
+        products_dir = os.path.join(base_dir, "products")
+        result["products_dir_exists"] = os.path.isdir(products_dir)
+        
+        # List product directories
+        if result["products_dir_exists"]:
+            product_dirs = os.listdir(products_dir)
+            result["product_dirs"] = product_dirs
+            
+            # If specific product ID provided, examine that directory
+            product_id = request.args.get('product_id')
+            if product_id and product_id in product_dirs:
+                product_path = os.path.join(products_dir, product_id)
+                result["specific_product"] = {
+                    "id": product_id,
+                    "path": product_path,
+                    "contents": list_directory_recursive(product_path)
+                }
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+def list_directory_recursive(path, max_depth=3, current_depth=0):
+    """Helper to list directory contents recursively"""
+    result = {}
+    if current_depth >= max_depth:
+        return {"max_depth_reached": True}
+    
+    try:
+        for item in os.listdir(path):
+            item_path = os.path.join(path, item)
+            if os.path.isdir(item_path):
+                result[item] = list_directory_recursive(item_path, max_depth, current_depth + 1)
+            else:
+                result[item] = {
+                    "size": os.path.getsize(item_path),
+                    "modified": os.path.getmtime(item_path)
+                }
+        return result
+    except Exception as e:
+        return {"error": str(e)}
 # Main entry point
 if __name__ == '__main__':
     # Get port from environment variable or use default

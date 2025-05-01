@@ -44,9 +44,6 @@ services:
       - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_USE_TLS=${MAIL_USE_TLS:-True}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
       - EMAIL_SERVICE_API_KEY=${EMAIL_SERVICE_API_KEY:-email_service_api_key}
       - SECRET_KEY=${EMAIL_SERVICE_SECRET_KEY:-email_service_secret}
       - PORT=5002
@@ -108,6 +105,7 @@ services:
     environment:
       - PORT=5006
       - DB_SERVICE_URL=http://database-service:5003/api
+      - STORAGE_SERVICE_URL=http://storage-service:5005
       - DB_NAME=/data/promotion.sqlite
       - STORAGE_DB_NAME=/data/storage.sqlite
       - FLASK_DEBUG=false

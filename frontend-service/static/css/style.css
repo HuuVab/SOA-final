@@ -1,0 +1,182 @@
+/* style.css - Base styles for the E-Commerce Store */
+
+/* General Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+    line-height: 1.6;
+}
+
+a {
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    opacity: 0.85;
+}
+
+/* Header and Navigation */
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Styles */
+.card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+/* Button Styles */
+.btn {
+    border-radius: 0.25rem;
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+.btn-outline-primary {
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-outline-primary:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Hero Banner */
+.bg-light {
+    background-color: #f8f9fa;
+}
+
+/* Cart Badge Animation */
+#cartCount.highlight {
+    animation: pulse 1s;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.3);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Toast Notifications */
+.toast-container {
+    z-index: 1100;
+}
+
+.toast {
+    opacity: 1 !important;
+    border-left-width: 4px;
+}
+
+.border-success {
+    border-left-color: #28a745 !important;
+}
+
+.border-danger {
+    border-left-color: #dc3545 !important;
+}
+
+.border-info {
+    border-left-color: #17a2b8 !important;
+}
+
+/* Product Card Styles */
+.product-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.product-image-container {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+}
+
+.product-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.product-image.active {
+    opacity: 1;
+}
+
+.image-progress-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.image-progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #007bff;
+    transition: width 0.1s linear;
+}
+
+.image-progress-bar.active {
+    transition: width 0.1s linear;
+}
+
+/* Footer */
+footer {
+    margin-top: 2rem;
+}
+
+/* Responsive Styles */
+@media (max-width: 767.98px) {
+    .card-img-top {
+        height: 180px;
+    }
+}

@@ -1,47 +1,203 @@
-/* Main styling for the e-commerce frontend */
+/* main.css - E-Commerce Store Styles */
 
-/* Product card styling */
+/* Base Styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Product Card Styles */
 .product-card {
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
 }
 
 .product-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
 }
 
-.product-card img {
+.product-image-container {
     height: 200px;
-    object-fit: cover;
+    position: relative;
+    overflow: hidden;
+    background-color: #f8f9fa;
 }
 
-/* Hero section styling */
-.hero-section {
-    background-size: cover;
-    background-position: center;
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    transition: opacity 0.5s ease;
 }
 
-/* Category styling */
-.category-card {
-    transition: transform 0.3s;
+.product-image.active {
+    opacity: 1;
 }
 
-.category-card:hover {
-    transform: translateY(-5px);
+.image-progress-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: rgba(0,0,0,0.1);
 }
 
-/* Footer styling */
-footer a {
-    text-decoration: none;
+.image-progress-bar {
+    height: 100%;
+    width: 0;
+    background-color: var(--bs-primary);
+    transition: width 0.1s linear;
 }
 
-footer a:hover {
-    text-decoration: underline;
+.image-progress-bar.active {
+    width: 100%;
+    transition: width 3s linear;
+}
+
+/* Cart Counter Styles */
+#cartCount {
+    transition: all 0.3s ease;
+}
+
+#cartCount.highlight {
+    transform: scale(1.5);
+    background-color: var(--bs-primary) !important;
+}
+
+/* Toast Notifications */
+.toast-container {
+    z-index: 1050;
+}
+
+.toast {
+    min-width: 250px;
+}
+
+/* Authentication Specific Styles */
+.dropdown-menu {
+    min-width: 12rem;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.modal-header {
+    border-bottom: 3px solid var(--bs-primary);
+}
+
+#accountNavItem .dropdown-toggle::after {
+    vertical-align: middle;
+}
+
+#accountNavItem .bi-person {
+    font-size: 1.1rem;
+    vertical-align: text-top;
+    margin-right: 3px;
+}
+
+/* Profile & Account Management */
+.alert {
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+}
+
+#loginForm, #registerForm, #profileForm, #passwordForm, #verificationForm {
+    margin-top: 1rem;
+}
+
+#resendCodeBtn {
+    padding: 0;
+    margin-top: 8px;
+}
+
+/* Cart & Checkout Styles */
+.quantity-controls .btn {
+    width: 30px;
+    height: 30px;
+    line-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cart-item:not(:last-child) {
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.address-card, .payment-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.address-card:hover, .payment-card:hover {
+    box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+}
+
+.border-primary {
+    border-width: 2px !important;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .product-card img {
-        height: 150px;
+    .navbar-nav .dropdown-menu {
+        position: absolute;
     }
+}
+
+/* Animation for verification success */
+@keyframes success-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+}
+
+.alert-success {
+    animation: success-pulse 2s infinite;
+}
+
+/* Improve form spacing and readability */
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 1rem;
+}
+
+.btn-primary {
+    font-weight: 500;
+}
+
+/* Add loading spinner styles */
+.loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.5rem;
+    vertical-align: text-bottom;
+    border: 0.2em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border .75s linear infinite;
+}
+
+@keyframes spinner-border {
+    to { transform: rotate(360deg); }
 }

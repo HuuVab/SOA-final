@@ -1,0 +1,149 @@
+{% extends "layout.html" %}
+
+{% block title %}Verify Your Email{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Verify Your Email</h3>
+            </div>
+            <div class="card-body p-4">
+                <div id="verifyPageAlert" class="alert alert-info">
+                    <p>We've sent a verification code to your email. Please check your inbox and enter the code below.</p>
+                </div>
+                
+                <form id="verifyPageForm">
+                    <div class="mb-3">
+                        <label for="verifyPageEmail" class="form-label">Email address</label>
+                        <input type="email" class="form-control" id="verifyPageEmail" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="verifyPageCode" class="form-label">Verification Code</label>
+                        <input type="text" class="form-control" id="verifyPageCode" required>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <span id="verifyBtnText">Verify Email</span>
+                            <span id="verifySpinner" class="loading-spinner d-none"></span>
+                        </button>
+                        <button type="button" id="verifyPageResendBtn" class="btn btn-link">Resend Code</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light">
+                <p class="text-center mb-0">Already verified? <a href="/login">Log in here</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get email from local storage
+        const email = localStorage.getItem('email_to_verify');
+        if (!email) {
+            // No email to verify, redirect to login
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Set email in form
+        document.getElementById('verifyPageEmail').value = email;
+        
+        // Handle form submission
+        const form = document.getElementById('verifyPageForm');
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const code = document.getElementById('verifyPageCode').value;
+            const alertElement = document.getElementById('verifyPageAlert');
+            const verifyBtn = document.getElementById('verifyBtnText');
+            const spinner = document.getElementById('verifySpinner');
+            
+            // Show loading spinner
+            verifyBtn.classList.add('d-none');
+            spinner.classList.remove('d-none');
+            
+            try {
+                const response = await fetch('/api/customers/verify-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Verification successful
+                    alertElement.className = 'alert alert-success';
+                    alertElement.innerHTML = '<p>Email verified successfully! Redirecting to your account...</p>';
+                    
+                    // Store token and redirect
+                    localStorage.setItem('ecomm_auth_token', data.token);
+                    localStorage.removeItem('email_to_verify');
+                    
+                    // Redirect after a short delay
+                    setTimeout(() => {
+                        window.location.href = '/account';
+                    }, 2000);
+                } else {
+                    // Verification failed
+                    alertElement.className = 'alert alert-danger';
+                    alertElement.textContent = data.message || 'Verification failed. Please check the code and try again.';
+                    
+                    // Hide spinner, show button text
+                    verifyBtn.classList.remove('d-none');
+                    spinner.classList.add('d-none');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                alertElement.className = 'alert alert-danger';
+                alertElement.textContent = 'An error occurred. Please try again later.';
+                
+                // Hide spinner, show button text
+                verifyBtn.classList.remove('d-none');
+                spinner.classList.add('d-none');
+            }
+        });
+        
+        // Handle resend code
+        document.getElementById('verifyPageResendBtn').addEventListener('click', async function() {
+            const alertElement = document.getElementById('verifyPageAlert');
+            
+            try {
+                const response = await fetch('/api/customers/resend-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Code resent successfully
+                    alertElement.className = 'alert alert-success';
+                    alertElement.textContent = 'Verification code resent. Please check your email.';
+                    
+                    // Reset to info alert after 3 seconds
+                    setTimeout(() => {
+                        alertElement.className = 'alert alert-info';
+                        alertElement.innerHTML = '<p>We\'ve sent a verification code to your email. Please check your inbox and enter the code below.</p>';
+                    }, 3000);
+                } else {
+                    // Failed to resend code
+                    alertElement.className = 'alert alert-danger';
+                    alertElement.textContent = data.message || 'Failed to resend code. Please try again.';
+                }
+            } catch (error) {
+                console.error('Resend code error:', error);
+                alertElement.className = 'alert alert-danger';
+                alertElement.textContent = 'An error occurred. Please try again later.';
+            }
+        });
+    });
+</script>
+{% endblock %}
