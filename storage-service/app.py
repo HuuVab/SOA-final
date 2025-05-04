@@ -1329,7 +1329,37 @@ def list_directory_recursive(path, max_depth=3, current_depth=0):
     except Exception as e:
         return {"error": str(e)}
 # Main entry point
+# Add these imports at the top of your app.py file
+import os
+from flask import Flask, request, jsonify, send_from_directory, send_file
+
+# Add this right after your app initialization, before the routes
+# Create a static directory if it doesn't exist
+@app.route('/')
+def index():
+    """Serve the index.html file"""
+    return send_file('static/index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files"""
+    if os.path.exists(f"static/{path}"):
+        return send_file(f"static/{path}")
+    return send_file('static/index.html')
+
+# Add this to the end of your file, just before the if __name__ == '__main__' block
+def ensure_static_directory():
+    """Ensure the static directory exists"""
+    os.makedirs('static', exist_ok=True)
+    os.makedirs('static/css', exist_ok=True)
+    os.makedirs('static/js', exist_ok=True)
+    os.makedirs('static/img', exist_ok=True)
+
+# Update your main block to call this function
 if __name__ == '__main__':
+    # Ensure static directory exists
+    ensure_static_directory()
+    
     # Get port from environment variable or use default
     port = int(os.environ.get('PORT', 5005))
     

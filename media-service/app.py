@@ -17,7 +17,7 @@ import os
 import mimetypes
 from pathlib import Path
 import shutil
-
+from flask import Flask, request, jsonify,send_from_directory
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -1750,7 +1750,10 @@ def health_check():
     except Exception as e:
         logger.error(f"Error in health_check route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+    
 # Main entry point
 if __name__ == '__main__':
     # Get port from environment variable or use default

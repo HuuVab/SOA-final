@@ -82,8 +82,26 @@
         </div>
     </div>
 
+    <!-- Product Categories Section -->
+    <section class="py-5 bg-white">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Shop by Category</h2>
+                <p class="text-muted">Browse products by category</p>
+            </div>
+            <div class="row" id="categoryGrid">
+                <!-- Category grid with icons will be loaded via JavaScript -->
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Featured Products Section -->
-    <section class="py-5">
+    <section class="py-5 bg-light">
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="fw-bold">Featured Products</h2>
@@ -103,76 +121,63 @@
         </div>
     </section>
 
-    <!-- Latest News Section -->
-    <section class="py-5 bg-light media-section">
-        <div class="container">
-            <div class="media-section-header">
-                <h2 class="fw-bold">Latest News</h2>
-                <p class="media-section-subheader">Stay updated with our company news and announcements</p>
-            </div>
-            <div class="row" id="latestNews">
-                <!-- Latest news will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-            <div class="text-center mt-4">
-                <a href="/news" class="btn btn-outline-primary">View All News</a>
-            </div>
-        </div>
-    </section>
 
-    <!-- Featured Articles Section -->
-    <section class="py-5 media-section">
-        <div class="container">
-            <div class="media-section-header">
-                <h2 class="fw-bold">Featured Articles</h2>
-                <p class="media-section-subheader">Read our latest articles and guides</p>
-            </div>
-            <div class="row" id="featuredArticles">
-                <!-- Featured articles will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-            <div class="text-center mt-4">
-                <a href="/articles" class="btn btn-outline-primary">View All Articles</a>
-            </div>
-        </div>
-    </section>
 
-    <!-- Categories Section -->
+    <!-- Technology News Section (Similar to "Tin tức công nghệ") -->
     <section class="py-5 bg-light">
         <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Shop by Category</h2>
-                <p class="text-muted">Browse products by category</p>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold mb-0">Technology News</h2>
+                <a href="/news" class="text-decoration-none">View all <i class="bi bi-arrow-right"></i></a>
             </div>
-            <div class="row" id="categoryList">
-                <!-- Categories will be loaded via JavaScript -->
-                <div class="col-12 text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+            <div class="row" id="techNewsGrid">
+                <!-- Combined news and articles in a grid format -->
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 news-card">
+                        <img src="https://placehold.co/600x400?text=Loading" class="card-img-top news-thumbnail" alt="News thumbnail">
+                        <div class="card-body">
+                            <h5 class="card-title text-truncate">Loading news article...</h5>
+                            <p class="card-text news-excerpt">Content is loading, please wait...</p>
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            <a href="#" class="stretched-link"></a>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Newsletter Section -->
-    <section class="py-5 bg-primary text-white">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-md-8 text-center">
-                    <h2 class="fw-bold mb-4">Subscribe to Our Newsletter</h2>
-                    <p class="mb-4">Get the latest updates, news and product offers delivered directly to your inbox.</p>
-                    <div class="input-group mb-3">
-                        <input type="email" class="form-control" placeholder="Your email address">
-                        <button class="btn btn-light" type="button">Subscribe</button>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 news-card">
+                        <img src="https://placehold.co/600x400?text=Loading" class="card-img-top news-thumbnail" alt="News thumbnail">
+                        <div class="card-body">
+                            <h5 class="card-title text-truncate">Loading news article...</h5>
+                            <p class="card-text news-excerpt">Content is loading, please wait...</p>
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            <a href="#" class="stretched-link"></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 news-card">
+                        <img src="https://placehold.co/600x400?text=Loading" class="card-img-top news-thumbnail" alt="News thumbnail">
+                        <div class="card-body">
+                            <h5 class="card-title text-truncate">Loading news article...</h5>
+                            <p class="card-text news-excerpt">Content is loading, please wait...</p>
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            <a href="#" class="stretched-link"></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 news-card">
+                        <img src="https://placehold.co/600x400?text=Loading" class="card-img-top news-thumbnail" alt="News thumbnail">
+                        <div class="card-body">
+                            <h5 class="card-title text-truncate">Loading news article...</h5>
+                            <p class="card-text news-excerpt">Content is loading, please wait...</p>
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            <a href="#" class="stretched-link"></a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -258,5 +263,6 @@
     <!-- Custom JS -->
     <script src="/static/js/main.js"></script>
     <script src="/static/js/media.js"></script>
+    <script src="/static/js/home.js"></script>
 </body>
 </html>

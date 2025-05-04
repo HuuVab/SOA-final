@@ -292,156 +292,288 @@
     });
     
     async function loadOrderDetails() {
-        try {
-            const token = localStorage.getItem('ecomm_auth_token');
-            const response = await fetch(`/api/orders/${orderId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            // Hide loader
-            document.getElementById('orderDetailLoader').classList.add('d-none');
-            
-            if (response.ok && data.status === 'success') {
-                const order = data.order;
-                
-                // Show order content
-                document.getElementById('orderContent').classList.remove('d-none');
-                
-                // Format short order ID
-                const shortOrderId = order.order_id.substring(0, 8);
-                
-                // Update order header
-                document.getElementById('orderBreadcrumbId').textContent = shortOrderId;
-                document.getElementById('orderDisplayId').textContent = shortOrderId;
-                document.getElementById('orderDate').textContent = new Date(order.created_at).toLocaleDateString();
-                
-                // Update order status with badge
-                const statusClass = getStatusClass(order.status);
-                document.getElementById('orderStatus').innerHTML = `<span class="badge ${statusClass}">${order.status}</span>`;
-                
-                // Update tracking info if available
-                if (order.tracking_number && order.carrier) {
-                    document.getElementById('orderTrackingContainer').classList.remove('d-none');
-                    document.getElementById('orderTracking').textContent = order.tracking_number;
-                    document.getElementById('orderCarrier').textContent = ` (${order.carrier})`;
-                }
-                
-                // Update order summary
-                document.getElementById('orderTotal').textContent = formatPrice(order.total_amount || 0);
-                document.getElementById('orderDetailTotal').textContent = formatPrice(order.total_amount || 0);
-                
-                // Set estimated delivery date
-                if (order.estimated_delivery) {
-                    document.getElementById('orderDeliveryDate').textContent = new Date(order.estimated_delivery).toLocaleDateString();
-                } else {
-                    document.getElementById('orderDeliveryDate').textContent = 'Not available';
-                }
-                
-                // Calculate subtotal and discount
-                let subtotal = 0;
-                let discount = 0;
-                
-                if (order.items && order.items.length > 0) {
-                    // Calculate subtotal (sum of price * quantity)
-                    subtotal = order.items.reduce((total, item) => total + (item.price * item.quantity), 0);
-                    
-                    // Calculate discount (sum of discount * quantity)
-                    discount = order.items.reduce((total, item) => total + ((item.discount || 0) * item.quantity), 0);
-                }
-                
-                document.getElementById('orderSubtotal').textContent = formatPrice(subtotal);
-                document.getElementById('orderDiscount').textContent = `-${formatPrice(discount)}`;
-                
-                // Render order items
-                renderOrderItems(order.items);
-                
-                // Render shipping address
-                renderShippingAddress(order.shipping_address);
-                
-                // Render status timeline
-                renderStatusTimeline(order.status_history);
-                
-                // Show cancel button if order is cancellable
-                if (order.status && ['pending', 'processing'].includes(order.status.toLowerCase())) {
-                    const actionContainer = document.getElementById('orderActionContainer');
-                    actionContainer.innerHTML = `
-                        <button class="btn btn-danger" id="cancelOrderBtn">
-                            Cancel Order
-                        </button>
-                    `;
-                    
-                    document.getElementById('cancelOrderBtn').addEventListener('click', function() {
-                        // Show cancel order modal
-                        cancelOrderModal.show();
-                    });
-                }
-            } else {
-                // Order not found
-                document.getElementById('orderNotFoundMessage').classList.remove('d-none');
-                console.error('Error loading order details:', data.message);
+    try {
+        const token = localStorage.getItem('ecomm_auth_token');
+        const response = await fetch(`/api/orders/${orderId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
-        } catch (error) {
-            console.error('Error loading order details:', error);
-            document.getElementById('orderDetailLoader').classList.add('d-none');
+        });
+        
+        const data = await response.json();
+        
+        // Hide loader
+        document.getElementById('orderDetailLoader').classList.add('d-none');
+        
+        if (response.ok && data.status === 'success') {
+            const order = data.order;
+            
+            // Show order content
+            document.getElementById('orderContent').classList.remove('d-none');
+
+            console.log('Raw order data:', order);
+            console.log('Order total from API:', order.total_amount);
+            console.log('Order items:', order.items);
+
+            // Format short order ID
+            const shortOrderId = order.order_id.substring(0, 8);
+            
+            // Update order header
+            document.getElementById('orderBreadcrumbId').textContent = shortOrderId;
+            document.getElementById('orderDisplayId').textContent = shortOrderId;
+            document.getElementById('orderDate').textContent = new Date(order.created_at).toLocaleDateString();
+            
+            // Update order status with badge
+            const statusClass = getStatusClass(order.status);
+            document.getElementById('orderStatus').innerHTML = `<span class="badge ${statusClass}">${order.status}</span>`;
+            
+            // Update tracking info if available
+            if (order.tracking_number && order.carrier) {
+                document.getElementById('orderTrackingContainer').classList.remove('d-none');
+                document.getElementById('orderTracking').textContent = order.tracking_number;
+                document.getElementById('orderCarrier').textContent = ` (${order.carrier})`;
+            }
+            
+            // Calculate subtotal and discount using original prices if available
+            let subtotal = 0;
+            let promotionDiscount = 0;
+            let otherDiscount = 0;
+            
+            if (order.items && order.items.length > 0) {
+                // Calculate subtotal using original prices
+                subtotal = order.items.reduce((total, item) => {
+                    // Get the original price (before any promotions)
+                    const originalPrice = parseFloat(item.original_price || item.price || 0);
+                    const quantity = parseInt(item.quantity) || 0;
+                    return total + (originalPrice * quantity);
+                }, 0);
+                
+                // Calculate promotion discount (original_price - price)
+                // Calculate promotion discount (original_price - price)
+                promotionDiscount = order.items.reduce((total, item) => {
+                    // Only calculate discount if has_promotion is explicitly set to 1 or 
+                    // if original_price exists AND is greater than price
+                    if ((item.has_promotion == 1) || 
+                        (item.original_price && item.price && parseFloat(item.original_price) > parseFloat(item.price))) {
+                        
+                        const originalPrice = parseFloat(item.original_price || 0);
+                        const finalPrice = parseFloat(item.price || 0);
+                        const quantity = parseInt(item.quantity) || 0;
+                        
+                        // Only add to discount if there's an actual price difference
+                        if (originalPrice > finalPrice) {
+                            return total + ((originalPrice - finalPrice) * quantity);
+                        }
+                    }
+                    return total;
+                }, 0);
+                
+                // Calculate other discounts
+                otherDiscount = order.items.reduce((total, item) => {
+                    return total + (parseFloat(item.discount || 0) * (parseInt(item.quantity) || 0));
+                }, 0);
+            }
+            
+            // Total discount
+            const totalDiscount = promotionDiscount + otherDiscount;
+            
+            // Calculate if we need to show an additional fees section
+            const calculatedTotal = subtotal - totalDiscount;
+            const apiTotal = parseFloat(order.total_amount) || 0;
+            const additionalFees = apiTotal - calculatedTotal;
+            
+            console.log('Calculated subtotal:', subtotal);
+            console.log('Promotion discount:', promotionDiscount);
+            console.log('Other discount:', otherDiscount);
+            console.log('Total discount:', totalDiscount);
+            console.log('Calculated total:', calculatedTotal);
+            console.log('API total:', apiTotal);
+            console.log('Additional fees:', additionalFees);
+            
+            // Update the order summary display
+            document.getElementById('orderSubtotal').textContent = formatPrice(subtotal);
+            
+            document.getElementById('orderDiscount').textContent = `-${formatPrice(totalDiscount)}`;
+            // Show discounts if applicable
+            if (totalDiscount > 0) {
+                document.getElementById('orderDiscount').textContent = `-${formatPrice(totalDiscount)}`;
+            } else {
+                document.getElementById('orderDiscount').textContent = `-${formatPrice(0)}`;
+            }
+            
+            // Handle additional fees if they exist
+            if (Math.abs(additionalFees) > 0.01 && additionalFees > 0) {
+                // Get the order summary card body
+                const orderSummaryElement = document.querySelector('.card-body:has(#orderDetailTotal)');
+                if (orderSummaryElement) {
+                    // Add a divider before additional fees
+                    const divider = document.createElement('hr');
+                    const totalElement = document.getElementById('orderDetailTotal').parentElement;
+                    orderSummaryElement.insertBefore(divider, totalElement);
+                    
+                    // Add the additional fees line
+                    const feesElement = document.createElement('div');
+                    feesElement.className = 'd-flex justify-content-between mb-2';
+                    feesElement.innerHTML = `
+                        <span>Shipping/Handling:</span>
+                        <span>${formatPrice(additionalFees)}</span>
+                    `;
+                    orderSummaryElement.insertBefore(feesElement, totalElement);
+                }
+            }
+            
+            // Update total with API value to ensure accuracy
+            document.getElementById('orderTotal').textContent = formatPrice(apiTotal);
+            document.getElementById('orderDetailTotal').textContent = formatPrice(apiTotal);
+            
+            // Set estimated delivery date
+            if (order.estimated_delivery) {
+                document.getElementById('orderDeliveryDate').textContent = new Date(order.estimated_delivery).toLocaleDateString();
+            } else {
+                document.getElementById('orderDeliveryDate').textContent = 'Not available';
+            }
+            
+            // Render order items
+            renderOrderItems(order.items);
+            
+            // Render shipping address
+            renderShippingAddress(order.shipping_address);
+            
+            // Render status timeline
+            renderStatusTimeline(order.status_history);
+            
+            // Show cancel button if order is cancellable
+            if (order.status && ['pending', 'processing'].includes(order.status.toLowerCase())) {
+                const actionContainer = document.getElementById('orderActionContainer');
+                actionContainer.innerHTML = `
+                    <button class="btn btn-danger" id="cancelOrderBtn">
+                        Cancel Order
+                    </button>
+                `;
+                
+                document.getElementById('cancelOrderBtn').addEventListener('click', function() {
+                    // Show cancel order modal
+                    cancelOrderModal.show();
+                });
+            }
+        } else {
+            // Order not found
             document.getElementById('orderNotFoundMessage').classList.remove('d-none');
+            console.error('Error loading order details:', data.message);
         }
+    } catch (error) {
+        console.error('Error loading order details:', error);
+        document.getElementById('orderDetailLoader').classList.add('d-none');
+        document.getElementById('orderNotFoundMessage').classList.remove('d-none');
+    }
+}
+
+// Updated to handle promotions and original prices
+function renderOrderItems(items) {
+    const itemsList = document.getElementById('orderItemsList');
+    itemsList.innerHTML = '';
+    
+    if (!items || items.length === 0) {
+        itemsList.innerHTML = '<div class="list-group-item">No items found</div>';
+        return;
     }
     
-    function renderOrderItems(items) {
-        const itemsList = document.getElementById('orderItemsList');
-        itemsList.innerHTML = '';
+    // Debug log all items to see their structure
+    console.log('Rendering order items:', items);
+    
+    items.forEach(item => {
+        // Debug each item's price fields
+        console.log(`Item ${item.product_name} price fields:`, {
+            price: item.price,
+            original_price: item.original_price,
+            has_promotion: item.has_promotion,
+            parsed_price: parseFloat(item.price),
+            parsed_original_price: parseFloat(item.original_price)
+        });
         
-        if (!items || items.length === 0) {
-            itemsList.innerHTML = '<div class="list-group-item">No items found</div>';
-            return;
+        const productImage = item.product_image 
+            ? `/api/storage/serve/${item.product_image}` 
+            : 'https://placehold.co/80x80?text=No+Image';
+        
+        // Explicitly handle different data types - Convert strings to numbers
+        // Make sure we handle null, undefined, empty strings, etc.
+        const originalPrice = item.original_price !== null && item.original_price !== undefined ? 
+            parseFloat(item.original_price) : 
+            (item.price !== null && item.price !== undefined ? parseFloat(item.price) : 0);
+        
+        const currentPrice = item.price !== null && item.price !== undefined ? 
+            parseFloat(item.price) : 0;
+        
+        const quantity = item.quantity !== null && item.quantity !== undefined ? 
+            parseInt(item.quantity) : 0;
+        
+        // Check for promotions - either explicit flag or price difference
+        const hasPromotion = item.has_promotion == 1 || 
+            (item.original_price && item.price && 
+            parseFloat(item.original_price) > parseFloat(item.price));
+        
+        // Calculate item total
+        const totalPrice = currentPrice * quantity;
+        
+        console.log(`Item ${item.product_name} calculated values:`, {
+            originalPrice,
+            currentPrice,
+            quantity,
+            hasPromotion,
+            totalPrice
+        });
+        
+        // Create the item element
+        const itemElement = document.createElement('div');
+        itemElement.className = 'list-group-item p-3';
+        
+        // Determine the price display format
+        let priceDisplay = '';
+        
+        if (originalPrice === 0 && currentPrice === 0) {
+            // Case for free items (truly zero price)
+            priceDisplay = `<span class="badge bg-success">Free</span>`;
+        } else if (hasPromotion && currentPrice === 0) {
+            // Case for 100% discounted items
+            priceDisplay = `
+                <span class="text-muted text-decoration-line-through">${formatPrice(originalPrice)}</span>
+                <span class="badge bg-success ms-2">Free</span>
+            `;
+        } else if (hasPromotion) {
+            // Normal promotion - original price crossed out, then discounted price
+            priceDisplay = `
+                <span class="text-muted text-decoration-line-through">${formatPrice(originalPrice)}</span>
+                <span class="text-danger fw-bold ms-2">${formatPrice(currentPrice)}</span>
+            `;
+        } else {
+            // Regular price display
+            priceDisplay = `<span class="fw-bold">${formatPrice(currentPrice)}</span>`;
         }
         
-        items.forEach(item => {
-            const productImage = item.product_image 
-                ? `/api/storage/serve/${item.product_image}` 
-                : 'https://placehold.co/80x80?text=No+Image';
-            
-            // Calculate item total
-            const itemPrice = parseFloat(item.price) || 0;
-            const itemDiscount = parseFloat(item.discount) || 0;
-            const discountedPrice = itemPrice - itemDiscount;
-            const totalPrice = itemPrice * item.quantity;
-            const hasDiscount = itemDiscount > 0;
-            
-            const itemElement = document.createElement('div');
-            itemElement.className = 'list-group-item p-3';
-            itemElement.innerHTML = `
-                <div class="row align-items-center">
-                    <div class="col-auto">
-                        <img src="${productImage}" alt="${item.product_name}" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: contain;">
-                    </div>
-                    <div class="col">
-                        <h5 class="mb-1">${item.product_name}</h5>
-                        <div class="d-flex justify-content-between align-items-center mt-2">
-                            <div class="price-container">
-                                ${hasDiscount ? `
-                                    <span class="text-muted text-decoration-line-through">${formatPrice(itemPrice)}</span>
-                                    <span class="text-danger fw-bold ms-2">${formatPrice(discountedPrice)}</span>
-                                ` : `
-                                    <span class="fw-bold">${formatPrice(itemPrice)}</span>
-                                `}
-                                <span class="text-muted ms-2">x ${item.quantity}</span>
-                            </div>
-                            <div class="text-end">
-                                <strong>Total: ${formatPrice(totalPrice)}</strong>
-                            </div>
+        // Build the full item HTML
+        itemElement.innerHTML = `
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <img src="${productImage}" alt="${item.product_name}" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: contain;">
+                </div>
+                <div class="col">
+                    <h5 class="mb-1">${item.product_name}</h5>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="price-container">
+                            ${priceDisplay}
+                            <span class="text-muted ms-2">x ${quantity}</span>
+                        </div>
+                        <div class="text-end">
+                            <strong>Total: ${currentPrice === 0 ? 'Free' : formatPrice(totalPrice)}</strong>
                         </div>
                     </div>
                 </div>
-            `;
-            
-            itemsList.appendChild(itemElement);
-        });
-    }
+            </div>
+        `;
+        
+        itemsList.appendChild(itemElement);
+    });
+}
     
     function renderShippingAddress(address) {
         const addressContent = document.getElementById('shippingAddressContent');

@@ -1,0 +1,170 @@
+{% extends "layout.html" %}
+
+{% block title %}Search Results for "{{ query }}"{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Search Results for "{{ query }}"</h1>
+    
+    <div id="searchResults" class="row row-cols-1 row-cols-md-3 g-4">
+        <div class="col-12 text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="noResults" class="alert alert-info d-none">
+        No products found matching your search.
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load search results
+    fetch(`/api/frontend/search?q={{ query }}`)
+        .then(response => response.json())
+        .then(data => {
+            const resultsContainer = document.getElementById('searchResults');
+            const noResultsMessage = document.getElementById('noResults');
+            
+            // Clear loading spinner
+            resultsContainer.innerHTML = '';
+            
+            if (data.status === 'success' && data.data.length > 0) {
+                // Display products
+                data.data.forEach(product => {
+                    const productCard = createProductCard(product);
+                    resultsContainer.appendChild(productCard);
+                });
+            } else {
+                // Display no results message
+                noResultsMessage.classList.remove('d-none');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching search results:', error);
+            document.getElementById('searchResults').innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        Error loading search results. Please try again.
+                    </div>
+                </div>
+            `;
+        });
+    
+    // Function to create a product card
+    function createProductCard(product) {
+        const col = document.createElement('div');
+        col.className = 'col';
+        
+        const hasPromotion = product.has_promotion;
+        const price = product.price;
+        const discountedPrice = product.discounted_price;
+        
+        let priceHtml = `<p class="card-text">$${price.toFixed(2)}</p>`;
+        
+        if (hasPromotion) {
+            priceHtml = `
+                <p class="card-text">
+                    <span class="text-decoration-line-through">$${price.toFixed(2)}</span>
+                    <span class="text-danger fw-bold">$${discountedPrice.toFixed(2)}</span>
+                </p>
+            `;
+        }
+        
+        col.innerHTML = `
+            <div class="card h-100">
+                <img src="/api/storage/serve/${product.image_url || 'placeholder.jpg'}" class="card-img-top" alt="${product.name}">
+                <div class="card-body">
+                    <h5 class="card-title">${product.name}</h5>
+                    <p class="card-text small">${product.description}</p>
+                    ${priceHtml}
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-primary btn-sm add-to-cart" data-product-id="${product.product_id}">
+                        <i class="bi bi-cart-plus"></i> Add to Cart
+                    </button>
+                    <a href="/products/${product.product_id}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-info-circle"></i> Details
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        // Add event listener for add to cart button
+        const addToCartBtn = col.querySelector('.add-to-cart');
+        addToCartBtn.addEventListener('click', function() {
+            const productId = this.getAttribute('data-product-id');
+            addToCart(productId, 1);
+        });
+        
+        return col;
+    }
+    
+    // Function to add product to cart
+    function addToCart(productId, quantity) {
+        // Check if user is logged in
+        const token = localStorage.getItem('userToken');
+        if (!token) {
+            // Show login modal if not logged in
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+            return;
+        }
+        
+        // Add to cart API call
+        fetch('/api/cart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                quantity: quantity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Update cart count
+                updateCartCount();
+                
+                // Show success message
+                alert('Product added to cart!');
+            } else {
+                alert('Error adding to cart: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error adding to cart:', error);
+            alert('Error adding product to cart. Please try again.');
+        });
+    }
+    
+    // Function to update cart count
+    function updateCartCount() {
+        const token = localStorage.getItem('userToken');
+        if (token) {
+            fetch('/api/cart/count', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('cartCount').textContent = data.count;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating cart count:', error);
+            });
+        }
+    }
+});
+</script>
+{% endblock %}

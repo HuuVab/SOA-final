@@ -13,7 +13,7 @@ from datetime import datetime
 import jwt
 from flask_cors import CORS
 from functools import wraps
-
+from flask import send_from_directory
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -165,24 +165,38 @@ def token_required(f):
 def health_check():
     """Health check endpoint"""
     try:
-        # Check if DB service is accessible
-        response = requests.get(f"{DB_SERVICE_URL}/health")
-        db_status = response.json()
-        
+        services_status = {}
+            # Check if DB service is accessible
+        try:
+            db_response = requests.get(f"{DB_SERVICE_URL}/health", timeout=3)
+            services_status['db_service'] = "up" if db_response.status_code == 200 else "down"
+        except Exception as e:
+            logger.error(f"DB service check error: {str(e)}")
+            services_status['db_service'] = "down"
+            # Check Email service
+        try:
+            email_response = requests.get(f"{EMAIL_SERVICE_URL}/api/health", timeout=3)  # Make sure to use /api/health
+            services_status['email_service'] = "up" if email_response.status_code == 200 else "down"
+        except Exception as e:
+            logger.error(f"Email service check error: {str(e)}")
+            services_status['email_service'] = "down"   
+
         return jsonify({
-            "status": "up",
-            "service": "Customer API",
-            "db_service": db_status,
-            "version": "1.0.0"
-        })
+                "status": "up",
+                "service": "Customer API",
+                "services": services_status,
+                "version": "1.0.0"
+            })
     except Exception as e:
-        logger.error(f"Error in health check: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "service": "Customer API",
-            "message": f"Error connecting to DB service: {str(e)}",
-            "version": "1.0.0"
-        }), 500
+            logger.error(f"Error in health check: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "service": "Customer API",
+                "message": f"Error connecting to DB service: {str(e)}",
+                "version": "1.0.0"
+            }), 500
+
+
 
 @app.route('/api/customers/register', methods=['POST'])
 def register_customer():
@@ -849,6 +863,163 @@ def validate_token():
         logger.error(f"Error validating token: {str(e)}")
         return jsonify({"status": "error", "message": f"Error validating token: {str(e)}", "valid": False}), 500
 
+
+@app.route('/api/customers/all', methods=['GET'])
+def get_all_customers():
+    """Get all customers - Admin endpoint, no authentication required"""
+    try:
+        # Get all customers from the database
+        response = requests.get(
+            f"{DB_SERVICE_URL}/tables/customers/data",
+            params={"columns": "customer_id,email,first_name,last_name,phone,address,email_verified,created_at,updated_at,last_login"}
+        )
+        
+        customers = response.json().get('data', [])
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Retrieved {len(customers)} customers",
+            "customers": customers
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all customers: {str(e)}")
+        return jsonify({"status": "error", "message": f"Error getting all customers: {str(e)}"}), 500
+
+@app.route('/api/customers/<customer_id>/update', methods=['PUT'])
+def admin_update_customer(customer_id):
+    """Update a customer without authentication - Admin endpoint"""
+    try:
+        data = request.get_json()
+        
+        # Check if customer exists
+        response = requests.get(
+            f"{DB_SERVICE_URL}/tables/customers/data",
+            params={"condition": "customer_id = ?", "params": customer_id}
+        )
+        
+        customers = response.json().get('data', [])
+        if not customers:
+            return jsonify({"status": "error", "message": "Customer not found"}), 404
+        
+        # Prevent updating sensitive fields
+        forbidden_fields = ['customer_id', 'password_hash', 'created_at']
+        for field in forbidden_fields:
+            if field in data:
+                data.pop(field)
+        
+        # Add updated timestamp
+        data['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Update customer data
+        response = requests.put(
+            f"{DB_SERVICE_URL}/tables/customers/data",
+            json={"values": data, "condition": "customer_id = ?", "params": [customer_id]}
+        )
+        
+        if response.status_code != 200 or response.json().get('status') != 'success':
+            return jsonify({"status": "error", "message": "Failed to update customer"}), 500
+        
+        # Get updated profile
+        response = requests.get(
+            f"{DB_SERVICE_URL}/tables/customers/data",
+            params={"condition": "customer_id = ?", "params": customer_id}
+        )
+        
+        customers = response.json().get('data', [])
+        customer = customers[0]
+        customer.pop('password_hash', None)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Customer updated successfully",
+            "customer": customer
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating customer: {str(e)}")
+        return jsonify({"status": "error", "message": f"Error updating customer: {str(e)}"}), 500
+
+@app.route('/api/customers/<customer_id>/delete', methods=['DELETE'])
+def admin_delete_customer(customer_id):
+    """Delete a customer account - Admin endpoint"""
+    try:
+        # Get customer data first
+        response = requests.get(
+            f"{DB_SERVICE_URL}/tables/customers/data",
+            params={"condition": "customer_id = ?", "params": customer_id}
+        )
+        
+        customers = response.json().get('data', [])
+        if not customers:
+            return jsonify({"status": "error", "message": "Customer not found"}), 404
+        
+        customer = customers[0]
+        
+        # Send account deletion notification email
+        EMAIL_SERVICE_URL = os.environ.get('EMAIL_SERVICE_URL', 'http://localhost:5002')
+        EMAIL_SERVICE_API_KEY = os.environ.get('EMAIL_SERVICE_API_KEY', 'email_service_api_key')
+        
+        try:
+            email_body = f"""
+Dear {customer['first_name']} {customer['last_name']},
+
+Your account has been deleted from our system.
+
+Account details:
+- Email: {customer['email']}
+- Customer ID: {customer['customer_id']}
+- Deletion time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+If you didn't request this deletion, please contact our support team immediately.
+
+Best regards,
+Customer Service Team
+"""
+            
+            email_response = requests.post(
+                f"{EMAIL_SERVICE_URL}/api/send-email",
+                json={
+                    "recipient_email": customer['email'],
+                    "subject": "Account Deletion Confirmation",
+                    "message": email_body
+                },
+                headers={"X-API-Key": EMAIL_SERVICE_API_KEY}
+            )
+            
+            if email_response.status_code != 200:
+                logger.warning(f"Failed to send deletion email: {email_response.json()}")
+                
+        except Exception as e:
+            logger.error(f"Error sending deletion email: {str(e)}")
+        
+        # Delete all sessions for this customer
+        response = requests.delete(
+            f"{DB_SERVICE_URL}/tables/customer_sessions/data",
+            json={"condition": "customer_id = ?", "params": [customer_id]}
+        )
+        
+        # Delete the customer
+        response = requests.delete(
+            f"{DB_SERVICE_URL}/tables/customers/data",
+            json={"condition": "customer_id = ?", "params": [customer_id]}
+        )
+        
+        if response.status_code != 200 or response.json().get('status') != 'success':
+            return jsonify({"status": "error", "message": "Failed to delete customer"}), 500
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Customer {customer['email']} deleted successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting customer: {str(e)}")
+        return jsonify({"status": "error", "message": f"Error deleting customer: {str(e)}"}), 500
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
 # Main entry point
 if __name__ == '__main__':
     # Get port from environment variable or use default 5000

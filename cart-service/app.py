@@ -172,22 +172,33 @@ class CartManager:
             return None
         
         try:
-            # Call the promotion service to get active promotions for this product
+            # Call the promotion service to get promotions for this product
             response = requests.get(
-                f"{self.promotion_service_url}/products/{product_id}/promotions"
+                f"{self.promotion_service_url}/api/products/{product_id}/promotions"
             )
             
             if response.status_code == 200 and response.json().get('status') == 'success':
                 promotions = response.json().get('promotions', [])
                 
-                # Filter for active promotions
-                active_promotions = [p for p in promotions if p.get('is_active') == 1]
+                # Current date for checking validity
+                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Filter for active promotions that are valid based on dates
+                active_promotions = [
+                    p for p in promotions 
+                    if p.get('is_active') == 1 and
+                    (not p.get('start_date') or p.get('start_date') <= current_date) and
+                    (not p.get('end_date') or p.get('end_date') >= current_date)
+                ]
                 
                 # Sort by discount value to get the best promotion
                 if active_promotions:
-                    # For simplicity, we'll just take the first active promotion
-                    # In a real system, you might want to select the best promotion for the customer
+                    # Sort by discounted_price to get the best deal
+                    if all('discounted_price' in p for p in active_promotions):
+                        return min(active_promotions, key=lambda p: p.get('discounted_price'))
                     return active_promotions[0]
+                
+                return None
             
             return None
         except Exception as e:

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Management System</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <h1>Product Management System</h1>
+      <div id="notification" class="notification hidden"></div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button id="back-button" class="btn btn-secondary hidden">
+        <i class="fas fa-arrow-left"></i> Back to Products
+      </button>
+      <button id="add-product-button" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add New Product
+      </button>
+    </div>
+
+    <!-- View Containers -->
+    <div id="products-view" class="view">
+      <h2>All Products</h2>
+      <div id="products-grid" class="products-grid"></div>
+    </div>
+
+    <div id="product-details-view" class="view hidden">
+      <div id="product-details-container" class="product-details"></div>
+    </div>
+
+    <div id="add-product-view" class="view hidden">
+      <h2>Add New Product</h2>
+      <form id="add-product-form" class="product-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="name">Product Name <span class="required">*</span></label>
+            <input type="text" id="name" name="name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="price">Price <span class="required">*</span></label>
+            <input type="number" id="price" name="price" min="0" step="0.01" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="stock">Stock Quantity <span class="required">*</span></label>
+            <input type="number" id="stock" name="stock" min="0" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="category">Category</label>
+            <input type="text" id="category" name="category">
+          </div>
+          
+          <div class="form-group">
+            <label for="manufacturer">Manufacturer</label>
+            <input type="text" id="manufacturer" name="manufacturer">
+          </div>
+          
+          <div class="form-group full-width">
+            <label for="description">Description <span class="required">*</span></label>
+            <textarea id="description" name="description" rows="5" required></textarea>
+          </div>
+          
+          <div class="form-group full-width">
+            <label for="product-images">Product Images</label>
+            <div class="file-upload">
+              <input type="file" id="product-images" name="images" multiple accept=".jpg,.jpeg,.png,.gif">
+              <label for="product-images" class="file-upload-label">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Click to select product images</span>
+                <small>JPG, JPEG, PNG, GIF supported</small>
+              </label>
+              <div id="selected-files" class="selected-files hidden"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" id="cancel-add" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Product</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="edit-product-view" class="view hidden">
+      <h2>Edit Product</h2>
+      <form id="edit-product-form" class="product-form">
+        <input type="hidden" id="edit-product-id" name="product_id">
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="edit-name">Product Name <span class="required">*</span></label>
+            <input type="text" id="edit-name" name="name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-price">Price <span class="required">*</span></label>
+            <input type="number" id="edit-price" name="price" min="0" step="0.01" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-stock">Stock Quantity <span class="required">*</span></label>
+            <input type="number" id="edit-stock" name="stock" min="0" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-category">Category</label>
+            <input type="text" id="edit-category" name="category">
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-manufacturer">Manufacturer</label>
+            <input type="text" id="edit-manufacturer" name="manufacturer">
+          </div>
+          
+          <div class="form-group full-width">
+            <label for="edit-description">Description <span class="required">*</span></label>
+            <textarea id="edit-description" name="description" rows="5" required></textarea>
+          </div>
+          
+          <div class="form-group full-width">
+            <label for="edit-product-images">Add More Images</label>
+            <div class="file-upload">
+              <input type="file" id="edit-product-images" name="images" multiple accept=".jpg,.jpeg,.png,.gif">
+              <label for="edit-product-images" class="file-upload-label">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Click to select additional images</span>
+                <small>JPG, JPEG, PNG, GIF supported</small>
+              </label>
+              <div id="edit-selected-files" class="selected-files hidden"></div>
+            </div>
+          </div>
+          
+          <div id="current-images" class="form-group full-width">
+            <label>Current Images</label>
+            <div id="current-images-container" class="image-gallery"></div>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update Product</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>Product Management System &copy; <span id="current-year"></span></p>
+    </div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Modal Confirmation Dialog -->
+  <div id="confirmation-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modal-title">Confirm Action</h3>
+      <p id="modal-message">Are you sure you want to proceed?</p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="modal-confirm" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/products.js"></script>
+  <script src="/js/product-form.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

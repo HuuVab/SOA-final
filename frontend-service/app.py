@@ -268,7 +268,79 @@ def proxy_customer_root_api():
     except Exception as e:
         logger.error(f"Error proxying to customer service root: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/search')
+def search_page():
+    """Render the search results page"""
+    query = request.args.get('q', '')
+    return render_template('search-results.html', query=query)
+
+@app.route('/api/frontend/search')
+def frontend_search():
+    """Search for products and enrich with promotion data"""
+    try:
+        query = request.args.get('q', '')
+        if not query:
+            return jsonify({
+                "status": "error", 
+                "message": "Search query is required"
+            }), 400
         
+        # Forward the search request to the storage service
+        storage_response = requests.get(f"{STORAGE_SERVICE_URL}/products/search", 
+                                       params={"q": query})
+        
+        if storage_response.status_code != 200:
+            return jsonify({
+                "status": "error", 
+                "message": f"Error searching products: {storage_response.text}"
+            }), 500
+        
+        products_data = storage_response.json()
+        
+        # Fetch all active promotions to enrich product data
+        promo_response = requests.get(f"{PROMOTION_SERVICE_URL}/promotions/active")
+        
+        # Create a map of product_id to promotion
+        promotion_map = {}
+        if promo_response.status_code == 200:
+            promotions_data = promo_response.json()
+            for promotion in promotions_data.get('data', []):
+                product_id = promotion.get('product_id')
+                if product_id:
+                    # A product might have multiple promotions, keep the best one
+                    if product_id in promotion_map:
+                        current_price = promotion_map[product_id].get('discounted_price', float('inf'))
+                        new_price = promotion.get('discounted_price', float('inf'))
+                        if new_price < current_price:
+                            promotion_map[product_id] = promotion
+                    else:
+                        promotion_map[product_id] = promotion
+        
+        # Enrich product data with promotion information
+        enriched_products = []
+        for product in products_data.get('data', []):
+            product_id = product.get('product_id')
+            if product_id in promotion_map:
+                product['promotion'] = promotion_map[product_id]
+                product['has_promotion'] = True
+                product['discounted_price'] = promotion_map[product_id].get('discounted_price')
+            else:
+                product['has_promotion'] = False
+            
+            enriched_products.append(product)
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Found {len(enriched_products)} products matching '{query}'",
+            "data": enriched_products
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in frontend_search route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 # Cart API Proxy Routes
 @app.route('/api/cart', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy_cart_root_api():

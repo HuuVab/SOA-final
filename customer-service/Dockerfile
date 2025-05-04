@@ -13,6 +13,7 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
+ENV DB_SERVICE_URL=http://database-service:5003/api
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

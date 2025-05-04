@@ -619,7 +619,7 @@ def get_products():
         
         condition = " AND ".join(conditions) if conditions else None
         
-        result = db_manager.select_data("products", "*", condition, tuple(params) if params else None)
+        result = db_managers.select_data("products", "*", condition, tuple(params) if params else None)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in get_products route: {e}")
@@ -643,7 +643,7 @@ def create_product():
         if 'updated_at' not in data:
             data['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        result = db_manager.insert_data("products", data)
+        result = db_managers.insert_data("products", data)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in create_product route: {e}")
@@ -653,13 +653,13 @@ def create_product():
 def get_product(product_id):
     """Get a specific product by ID"""
     try:
-        result = db_manager.select_data("products", "*", "product_id = ?", (product_id,))
+        result = db_managers.select_data("products", "*", "product_id = ?", (product_id,))
         
         if not result.get('data'):
             return jsonify({"status": "error", "message": f"Product with ID {product_id} not found"}), 404
         
         # Get reviews for this product
-        reviews = db_manager.select_data("reviews", "*", "product_id = ?", (product_id,))
+        reviews = db_managers.select_data("reviews", "*", "product_id = ?", (product_id,))
         
         # Add reviews to the product data
         result['data'][0]['reviews'] = reviews.get('data', [])
@@ -681,11 +681,11 @@ def update_product(product_id):
         data['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Check if product exists
-        check_result = db_manager.select_data("products", "product_id", "product_id = ?", (product_id,))
+        check_result = db_managers.select_data("products", "product_id", "product_id = ?", (product_id,))
         if not check_result.get('data'):
             return jsonify({"status": "error", "message": f"Product with ID {product_id} not found"}), 404
         
-        result = db_manager.update_data("products", data, "product_id = ?", (product_id,))
+        result = db_managers.update_data("products", data, "product_id = ?", (product_id,))
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in update_product route: {e}")
@@ -696,18 +696,18 @@ def delete_product(product_id):
     """Delete a product by ID"""
     try:
         # Check if product exists
-        check_result = db_manager.select_data("products", "product_id", "product_id = ?", (product_id,))
+        check_result = db_managers.select_data("products", "product_id", "product_id = ?", (product_id,))
         if not check_result.get('data'):
             return jsonify({"status": "error", "message": f"Product with ID {product_id} not found"}), 404
         
         # Delete related reviews first (foreign key constraint)
-        db_manager.delete_data("reviews", "product_id = ?", (product_id,))
+        db_managers.delete_data("reviews", "product_id = ?", (product_id,))
         
         # Delete related order items (foreign key constraint)
-        db_manager.delete_data("order_items", "product_id = ?", (product_id,))
+        db_managers.delete_data("order_items", "product_id = ?", (product_id,))
         
         # Delete the product
-        result = db_manager.delete_data("products", "product_id = ?", (product_id,))
+        result = db_managers.delete_data("products", "product_id = ?", (product_id,))
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in delete_product route: {e}")
@@ -717,12 +717,42 @@ def delete_product(product_id):
 def get_product_reviews(product_id):
     """Get all reviews for a specific product"""
     try:
-        result = db_manager.select_data("reviews", "*", "product_id = ?", (product_id,))
+        result = db_managers.select_data("reviews", "*", "product_id = ?", (product_id,))
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in get_product_reviews route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
+        
+@app.route('/api/tables/<table_name>/count_records', methods=['GET'])
+def count_table_records(table_name):
+    """Count records in a table with optional filtering"""
+    try:
+        # Get condition and params if provided
+        condition = request.args.get('condition')
+        params_str = request.args.get('params')
+        params = params_str.split(',') if params_str else []
+        
+        # Build the SQL query
+        query = f"SELECT COUNT(*) as count FROM {table_name}"
+        if condition:
+            query += f" WHERE {condition}"
+        
+        # Execute the query
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        result = cursor.fetchone()
+        
+        # Return the count
+        return jsonify({
+            "status": "success",
+            "count": result['count'] if result else 0
+        })
+    except Exception as e:
+        logger.error(f"Error counting records in table {table_name}: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error counting records: {str(e)}"
+        }), 500
 @app.route('/api/products/<product_id>/reviews', methods=['POST'])
 def add_product_review(product_id):
     """Add a review for a specific product"""
@@ -746,7 +776,7 @@ def add_product_review(product_id):
         if 'rating' not in data or not (1 <= int(data['rating']) <= 5):
             return jsonify({"status": "error", "message": "Rating must be between 1 and 5"}), 400
         
-        result = db_manager.insert_data("reviews", data)
+        result = db_managers.insert_data("reviews", data)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in add_product_review route: {e}")
@@ -772,7 +802,7 @@ def get_orders():
         
         condition = " AND ".join(conditions) if conditions else None
         
-        result = db_manager.select_data("orders", "*", condition, tuple(params) if params else None)
+        result = db_managers.select_data("orders", "*", condition, tuple(params) if params else None)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in get_orders route: {e}")
@@ -806,11 +836,11 @@ def create_order():
             data['status'] = 'pending'
         
         # Begin transaction
-        db_manager.conn.execute("BEGIN TRANSACTION")
+        db_managers.conn.execute("BEGIN TRANSACTION")
         
         try:
             # Insert the order
-            order_result = db_manager.insert_data("orders", data)
+            order_result = db_managers.insert_data("orders", data)
             
             # Insert order items
             for item in items:
@@ -822,14 +852,14 @@ def create_order():
                 item['order_id'] = order_id
                 
                 # Insert the item
-                db_manager.insert_data("order_items", item)
+                db_managers.insert_data("order_items", item)
                 
                 # Update product stock quantity
                 product_id = item['product_id']
                 quantity = item['quantity']
                 
                 # Get current stock
-                stock_result = db_manager.select_data("products", "stock_quantity", "product_id = ?", (product_id,))
+                stock_result = db_managers.select_data("products", "stock_quantity", "product_id = ?", (product_id,))
                 if not stock_result.get('data'):
                     raise Exception(f"Product with ID {product_id} not found")
                 
@@ -840,10 +870,10 @@ def create_order():
                     raise Exception(f"Insufficient stock for product {product_id}")
                 
                 # Update stock
-                db_manager.update_data("products", {"stock_quantity": new_stock}, "product_id = ?", (product_id,))
+                db_managers.update_data("products", {"stock_quantity": new_stock}, "product_id = ?", (product_id,))
             
             # Commit transaction
-            db_manager.conn.commit()
+            db_managers.conn.commit()
             
             # Return complete order with items
             order_with_items = {
@@ -857,7 +887,7 @@ def create_order():
         
         except Exception as e:
             # Rollback transaction on error
-            db_manager.conn.rollback()
+            db_managers.conn.rollback()
             raise e
     
     except Exception as e:
@@ -869,13 +899,13 @@ def get_order(order_id):
     """Get a specific order by ID with its items"""
     try:
         # Get order details
-        order_result = db_manager.select_data("orders", "*", "order_id = ?", (order_id,))
+        order_result = db_managers.select_data("orders", "*", "order_id = ?", (order_id,))
         
         if not order_result.get('data'):
             return jsonify({"status": "error", "message": f"Order with ID {order_id} not found"}), 404
         
         # Get order items
-        items_result = db_manager.select_data("order_items", "*", "order_id = ?", (order_id,))
+        items_result = db_managers.select_data("order_items", "*", "order_id = ?", (order_id,))
         
         # Combine results
         result = {
@@ -902,11 +932,11 @@ def update_order(order_id):
         data['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Check if order exists
-        check_result = db_manager.select_data("orders", "order_id", "order_id = ?", (order_id,))
+        check_result = db_managers.select_data("orders", "order_id", "order_id = ?", (order_id,))
         if not check_result.get('data'):
             return jsonify({"status": "error", "message": f"Order with ID {order_id} not found"}), 404
         
-        result = db_manager.update_data("orders", data, "order_id = ?", (order_id,))
+        result = db_managers.update_data("orders", data, "order_id = ?", (order_id,))
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in update_order route: {e}")
@@ -916,7 +946,7 @@ def update_order(order_id):
 def get_seller_products(seller_id):
     """Get all products for a specific seller"""
     try:
-        result = db_manager.select_data("products", "*", "seller_id = ?", (seller_id,))
+        result = db_managers.select_data("products", "*", "seller_id = ?", (seller_id,))
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in get_seller_products route: {e}")
@@ -926,13 +956,13 @@ def get_seller_products(seller_id):
 def get_customer_orders(customer_id):
     """Get all orders for a specific customer"""
     try:
-        result = db_manager.select_data("orders", "*", "customer_id = ?", (customer_id,))
+        result = db_managers.select_data("orders", "*", "customer_id = ?", (customer_id,))
         
         # Enrich with order items
         orders = result.get('data', [])
         for order in orders:
             order_id = order['order_id']
-            items_result = db_manager.select_data("order_items", "*", "order_id = ?", (order_id,))
+            items_result = db_managers.select_data("order_items", "*", "order_id = ?", (order_id,))
             order['items'] = items_result.get('data', [])
         
         return jsonify({
@@ -950,15 +980,15 @@ def get_product_stats():
     try:
         # Get total number of products
         count_query = "SELECT COUNT(*) as total_products FROM products"
-        count_result = db_manager.execute_query(count_query)
+        count_result = db_managers.execute_query(count_query)
         
         # Get products by category
         category_query = "SELECT category, COUNT(*) as count FROM products GROUP BY category"
-        category_result = db_manager.execute_query(category_query)
+        category_result = db_managers.execute_query(category_query)
         
         # Get average price
         avg_price_query = "SELECT AVG(price) as avg_price FROM products"
-        avg_price_result = db_manager.execute_query(avg_price_query)
+        avg_price_result = db_managers.execute_query(avg_price_query)
         
         # Get top sellers
         top_sellers_query = """
@@ -969,7 +999,7 @@ def get_product_stats():
         ORDER BY total_sold DESC
         LIMIT 5
         """
-        top_sellers_result = db_manager.execute_query(top_sellers_query)
+        top_sellers_result = db_managers.execute_query(top_sellers_query)
         
         # Combine results
         result = {
@@ -992,15 +1022,15 @@ def get_order_stats():
     try:
         # Get total number of orders
         count_query = "SELECT COUNT(*) as total_orders FROM orders"
-        count_result = db_manager.execute_query(count_query)
+        count_result = db_managers.execute_query(count_query)
         
         # Get orders by status
         status_query = "SELECT status, COUNT(*) as count FROM orders GROUP BY status"
-        status_result = db_manager.execute_query(status_query)
+        status_result = db_managers.execute_query(status_query)
         
         # Get average order value
         avg_value_query = "SELECT AVG(total_amount) as avg_value FROM orders"
-        avg_value_result = db_manager.execute_query(avg_value_query)
+        avg_value_result = db_managers.execute_query(avg_value_query)
         
         # Get orders by date (last 7 days)
         date_query = """
@@ -1010,7 +1040,7 @@ def get_order_stats():
         GROUP BY date(created_at)
         ORDER BY order_date
         """
-        date_result = db_manager.execute_query(date_query)
+        date_result = db_managers.execute_query(date_query)
         
         # Combine results
         result = {
@@ -1042,7 +1072,7 @@ def search_products():
         """
         search_params = (f"%{query}%", f"%{query}%", f"%{query}%")
         
-        result = db_manager.execute_query(search_query, search_params)
+        result = db_managers.execute_query(search_query, search_params)
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error in search_products route: {e}")

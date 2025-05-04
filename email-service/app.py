@@ -669,7 +669,7 @@ def send_welcome_email():
         app.logger.error(f"Failed to send welcome email to {email}: {message}")
         return jsonify({'message': message}), 500
 
-@app.route('/send/notification', methods=['POST'])
+@app.route('/api/send/notification', methods=['POST'])
 @api_key_required
 @rate_limit(limit=200, per=3600, scope='api_key')  # Limit to 200 notifications per hour per API key
 def send_notification_email():

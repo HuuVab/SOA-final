@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Management System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+            color: white;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #27ae60;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem 0;
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .content-header h1 {
+            font-size: 2rem;
+            color: #2c3e50;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 2rem;
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        .tab:hover {
+            color: #3498db;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            padding: 1rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: bold;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        /* Articles Grid */
+        .articles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .article-card {
+            border: 1px solid #e0e0e0;
+        }
+
+        .article-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+
+        .article-content {
+            padding: 1rem;
+        }
+
+        .article-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .article-summary {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .article-meta {
+            display: flex;
+            justify-content: space-between;
+            color: #999;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .article-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.1);
+        }
+
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-body {
+            padding: 1rem;
+        }
+
+        /* Tags */
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .tag {
+            background: #e8f4fd;
+            color: #3498db;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+        }
+
+        .tag-input {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .tag-input input {
+            flex: 1;
+        }
+
+        /* File Upload */
+        .file-upload {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+
+        .file-upload.dragover {
+            border-color: #3498db;
+            background: #e8f4fd;
+        }
+
+        .file-list {
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+
+        .status-draft {
+            background: #f39c12;
+            color: white;
+        }
+
+        .status-published {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-archived {
+            background: #95a5a6;
+            color: white;
+        }
+
+        /* Search */
+        .search-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-select {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            background: white;
+            min-width: 150px;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            color: white;
+            z-index: 2000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification-success {
+            background: #27ae60;
+        }
+
+        .notification-error {
+            background: #e74c3c;
+        }
+
+        .notification-info {
+            background: #3498db;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .search-bar, .filters {
+                flex-direction: column;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                padding: 0.75rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <a href="#" class="logo">Media Management</a>
+            <div class="nav-buttons">
+                <button class="btn btn-primary" onclick="openCreateArticleModal()">
+                    <i class="fas fa-plus"></i> New Article
+                </button>
+                <button class="btn btn-secondary" onclick="openUploadModal()">
+                    <i class="fas fa-upload"></i> Upload Images
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container main-content">
+        <div class="content-header">
+            <h1>Media Library</h1>
+            <div class="nav-buttons">
+                <button class="btn btn-primary" onclick="showFeaturedArticles()">
+                    <i class="fas fa-star"></i> Featured
+                </button>
+                <button class="btn btn-secondary" onclick="showTags()">
+                    <i class="fas fa-tags"></i> Tags
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="all" onclick="switchTab(this, 'all')">All</button>
+            <button class="tab" data-tab="articles" onclick="switchTab(this, 'articles')">Articles</button>
+            <button class="tab" data-tab="news" onclick="switchTab(this, 'news')">News</button>
+            <button class="tab" data-tab="draft" onclick="switchTab(this, 'draft')">Drafts</button>
+            <button class="tab" data-tab="published" onclick="switchTab(this, 'published')">Published</button>
+            <button class="tab" data-tab="archived" onclick="switchTab(this, 'archived')">Archived</button>
+        </div>
+
+        <!-- Search -->
+        <div class="search-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search articles..." onkeypress="handleSearch(event)">
+            <button class="btn btn-primary" onclick="performSearch()">
+                <i class="fas fa-search"></i> Search
+            </button>
+            <button class="btn btn-secondary" onclick="clearSearch()">
+                <i class="fas fa-times"></i> Clear
+            </button>
+        </div>
+
+        <!-- Articles Grid -->
+        <div class="articles-grid" id="articlesGrid">
+            <!-- Articles will be loaded here -->
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </main>
+
+    <!-- Create/Edit Article Modal -->
+    <div class="modal" id="articleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="articleModalTitle">Create Article</h2>
+                <button class="close-modal" onclick="closeArticleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="articleForm" onsubmit="handleArticleSubmit(event)">
+                    <input type="hidden" id="articleId">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="articleTitle">Title</label>
+                        <input type="text" class="form-control" id="articleTitle" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="articleSummary">Summary</label>
+                        <input type="text" class="form-control" id="articleSummary">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="articleType">Type</label>
+                        <select class="form-control" id="articleType" required>
+                            <option value="article">Article</option>
+                            <option value="news">News</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="articleContent">Content</label>
+                        <textarea class="form-control" id="articleContent" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="articleAuthor">Author</label>
+                        <input type="text" class="form-control" id="articleAuthor">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control" id="articleStatus">
+                            <option value="draft">Draft</option>
+                            <option value="published">Published</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="articleFeatured"> Featured Article
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tags</label>
+                        <div class="tag-input">
+                            <input type="text" class="form-control" id="tagInput" placeholder="Add tag and press Enter">
+                            <button type="button" class="btn btn-secondary" onclick="addTag()">Add</button>
+                        </div>
+                        <div class="tags" id="articleTags"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">Save Article</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeArticleModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Images Modal -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upload Images</h2>
+                <button class="close-modal" onclick="closeUploadModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Select Article</label>
+                    <select class="form-control" id="uploadArticleSelect">
+                        <option value="">Select an article...</option>
+                    </select>
+                </div>
+
+                <div class="file-upload" id="fileUpload" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+                    <div>
+                        <i class="fas fa-cloud-upload-alt fa-3x"></i>
+                        <p>Click or drag files here to upload</p>
+                        <p class="form-text">Supported formats: PNG, JPG, GIF, SVG, WebP</p>
+                    </div>
+                </div>
+
+                <div class="file-list" id="fileList"></div>
+
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="uploadFiles()">Upload Selected Files</button>
+                    <button class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_URL = 'http://localhost:5007/api';
+        
+        // State
+        let currentTab = 'all';
+        let selectedFiles = [];
+        let currentTags = [];
+        let currentArticleId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadArticles();
+            setupFileUpload();
+            loadArticlesForUpload();
+        });
+
+        // API Helper Functions
+        async function apiRequest(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(`${API_URL}${endpoint}`, options);
+            return response.json();
+        }
+
+        async function apiUpload(endpoint, formData) {
+            const response = await fetch(`${API_URL}${endpoint}`, {
+                method: 'POST',
+                body: formData,
+            });
+            return response.json();
+        }
+
+        // Articles Functions
+        async function loadArticles(type = null, status = null, query = null) {
+            showLoading();
+            try {
+                let endpoint = '/articles';
+                const params = new URLSearchParams();
+                
+                if (type && type !== 'all') params.append('type', type);
+                if (status) params.append('status', status);
+                
+                if (params.toString()) {
+                    endpoint += `?${params.toString()}`;
+                }
+
+                if (query) {
+                    endpoint = `/articles/search?q=${encodeURIComponent(query)}`;
+                }
+
+                const result = await apiRequest(endpoint);
+                
+                if (result.status === 'success') {
+                    displayArticles(result.data);
+                } else {
+                    showNotification('Error loading articles', 'error');
+                }
+            } catch (error) {
+                showNotification('Error loading articles', 'error');
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayArticles(articles) {
+            const grid = document.getElementById('articlesGrid');
+            if (!articles || articles.length === 0) {
+                grid.innerHTML = '<p class="loading">No articles found</p>';
+                return;
+            }
+
+            grid.innerHTML = articles.map(article => `
+                <div class="card article-card">
+                    ${article.featured_image ? `
+                        <img src="${API_URL}/media/serve/${article.featured_image.path}" 
+                             alt="${article.featured_image.alt_text}" 
+                             class="article-image">
+                    ` : `
+                        <div class="article-image" style="background: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-image fa-3x" style="color: #999;"></i>
+                        </div>
+                    `}
+                    <div class="article-content">
+                        <h3 class="article-title">${article.title}</h3>
+                        <p class="article-summary">${article.summary || ''}</p>
+                        <div class="article-meta">
+                            <span><i class="fas fa-user"></i> ${article.author || 'Unknown'}</span>
+                            <span><i class="fas fa-calendar"></i> ${new Date(article.created_at).toLocaleDateString()}</span>
+                            <span><i class="fas fa-eye"></i> ${article.view_count} views</span>
+                        </div>
+                        <div class="tags">
+                            ${article.tags ? article.tags.map(tag => `
+                                <span class="tag">${tag.name}</span>
+                            `).join('') : ''}
+                        </div>
+                        <span class="status-badge status-${article.status}">${article.status}</span>
+                        ${article.featured ? '<span class="status-badge" style="background: #f39c12;">Featured</span>' : ''}
+                        <div class="article-actions">
+                            <button class="btn btn-primary" onclick="editArticle('${article.article_id}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-secondary" onclick="viewArticleDetails('${article.article_id}')">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            ${article.status === 'draft' ? `
+                                <button class="btn btn-success" onclick="publishArticle('${article.article_id}')">
+                                    <i class="fas fa-check"></i> Publish
+                                </button>
+                            ` : ''}
+                            ${article.status === 'published' ? `
+                                <button class="btn btn-secondary" onclick="archiveArticle('${article.article_id}')">
+                                    <i class="fas fa-archive"></i> Archive
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-danger" onclick="deleteArticle('${article.article_id}')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Modal Functions
+        function openCreateArticleModal() {
+            currentArticleId = null;
+            currentTags = [];
+            document.getElementById('articleModalTitle').textContent = 'Create Article';
+            document.getElementById('articleForm').reset();
+            document.getElementById('articleId').value = '';
+            document.getElementById('articleTags').innerHTML = '';
+            document.getElementById('articleStatus').value = 'draft';
+            document.getElementById('articleModal').classList.add('active');
+        }
+
+        function closeArticleModal() {
+            document.getElementById('articleModal').classList.remove('active');
+        }
+
+        async function editArticle(articleId) {
+            try {
+                const result = await apiRequest(`/articles/${articleId}`);
+                if (result.status === 'success') {
+                    const article = result.data;
+                    currentArticleId = articleId;
+                    currentTags = article.tags ? article.tags.map(tag => tag.name) : [];
+                    
+                    document.getElementById('articleModalTitle').textContent = 'Edit Article';
+                    document.getElementById('articleId').value = article.article_id;
+                    document.getElementById('articleTitle').value = article.title;
+                    document.getElementById('articleSummary').value = article.summary || '';
+                    document.getElementById('articleType').value = article.type;
+                    document.getElementById('articleContent').value = article.content;
+                    document.getElementById('articleAuthor').value = article.author || '';
+                    document.getElementById('articleStatus').value = article.status;
+                    document.getElementById('articleFeatured').checked = article.featured === 1;
+                    
+                    updateTagsDisplay();
+                    document.getElementById('articleModal').classList.add('active');
+                } else {
+                    showNotification('Error loading article details', 'error');
+                }
+            } catch (error) {
+                showNotification('Error loading article details', 'error');
+                console.error(error);
+            }
+        }
+
+        async function handleArticleSubmit(event) {
+            event.preventDefault();
+            
+            const articleData = {
+                title: document.getElementById('articleTitle').value,
+                summary: document.getElementById('articleSummary').value,
+                content: document.getElementById('articleContent').value,
+                author: document.getElementById('articleAuthor').value,
+                type: document.getElementById('articleType').value,
+                status: document.getElementById('articleStatus').value,
+                featured: document.getElementById('articleFeatured').checked ? 1 : 0,
+                tags: currentTags
+            };
+
+            try {
+                let result;
+                if (currentArticleId) {
+                    result = await apiRequest(`/articles/${currentArticleId}`, 'PUT', articleData);
+                } else {
+                    result = await apiRequest('/articles', 'POST', articleData);
+                }
+
+                if (result.status === 'success') {
+                    showNotification('Article saved successfully', 'success');
+                    closeArticleModal();
+                    loadArticles();
+                } else {
+                    showNotification('Error saving article', 'error');
+                }
+            } catch (error) {
+                showNotification('Error saving article', 'error');
+                console.error(error);
+            }
+        }
+
+        // Tag Functions
+        function addTag() {
+            const input = document.getElementById('tagInput');
+            const tag = input.value.trim();
+            
+            if (tag && !currentTags.includes(tag)) {
+                currentTags.push(tag);
+                updateTagsDisplay();
+                input.value = '';
+            }
+        }
+
+        function removeTag(tag) {
+            currentTags = currentTags.filter(t => t !== tag);
+            updateTagsDisplay();
+        }
+
+        function updateTagsDisplay() {
+            const tagsDiv = document.getElementById('articleTags');
+            tagsDiv.innerHTML = currentTags.map(tag => `
+                <span class="tag">
+                    ${tag}
+                    <button onclick="removeTag('${tag}')" style="margin-left: 8px; background: none; border: none; cursor: pointer;">×</button>
+                </span>
+            `).join('');
+        }
+
+        // File Upload Functions
+        function setupFileUpload() {
+            const fileUpload = document.getElementById('fileUpload');
+            const fileInput = document.getElementById('fileInput');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileUpload.addEventListener(eventName, preventDefaults, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileUpload.addEventListener(eventName, () => fileUpload.classList.add('dragover'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileUpload.addEventListener(eventName, () => fileUpload.classList.remove('dragover'), false);
+            });
+
+            fileUpload.addEventListener('drop', handleDrop, false);
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            selectedFiles = [...files];
+            displayFileList();
+        }
+
+        function displayFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = selectedFiles.map((file, index) => `
+                <div class="file-item">
+                    <span>${file.name} (${formatFileSize(file.size)})</span>
+                    <button class="btn btn-danger" onclick="removeFile(${index})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displayFileList();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        async function uploadFiles() {
+            const articleId = document.getElementById('uploadArticleSelect').value;
+            if (!articleId) {
+                showNotification('Please select an article', 'error');
+                return;
+            }
+
+            if (selectedFiles.length === 0) {
+                showNotification('Please select files to upload', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+
+            try {
+                const result = await apiUpload(`/articles/${articleId}/images/upload/multiple`, formData);
+                if (result.status === 'success') {
+                    showNotification('Images uploaded successfully', 'success');
+                    closeUploadModal();
+                    loadArticles();
+                } else {
+                    showNotification('Error uploading images', 'error');
+                }
+            } catch (error) {
+                showNotification('Error uploading images', 'error');
+                console.error(error);
+            }
+        }
+
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+            loadArticlesForUpload();
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            selectedFiles = [];
+            displayFileList();
+            document.getElementById('fileInput').value = '';
+        }
+
+        async function loadArticlesForUpload() {
+            try {
+                const result = await apiRequest('/articles');
+                if (result.status === 'success') {
+                    const select = document.getElementById('uploadArticleSelect');
+                    select.innerHTML = '<option value="">Select an article...</option>' +
+                        result.data
+                            .filter(article => article.status === 'published' || article.status === 'draft')
+                            .map(article => `
+                                <option value="${article.article_id}">${article.title}</option>
+                            `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading articles:', error);
+            }
+        }
+
+        // Navigation and Filtering Functions
+        function switchTab(button, tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            button.classList.add('active');
+            currentTab = tab;
+            
+            let type = null;
+            let status = null;
+            
+            if (tab === 'articles') type = 'article';
+            if (tab === 'news') type = 'news';
+            if (['draft', 'published', 'archived'].includes(tab)) status = tab;
+            
+            loadArticles(type, status);
+        }
+
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query) {
+                loadArticles(null, null, query);
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            loadArticles();
+        }
+
+        // Article Actions
+        async function publishArticle(articleId) {
+            try {
+                const result = await apiRequest(`/articles/${articleId}/publish`, 'PUT');
+                if (result.status === 'success') {
+                    showNotification('Article published successfully', 'success');
+                    loadArticles();
+                } else {
+                    showNotification('Error publishing article', 'error');
+                }
+            } catch (error) {
+                showNotification('Error publishing article', 'error');
+                console.error(error);
+            }
+        }
+
+        async function archiveArticle(articleId) {
+            try {
+                const result = await apiRequest(`/articles/${articleId}/archive`, 'PUT');
+                if (result.status === 'success') {
+                    showNotification('Article archived successfully', 'success');
+                    loadArticles();
+                } else {
+                    showNotification('Error archiving article', 'error');
+                }
+            } catch (error) {
+                showNotification('Error archiving article', 'error');
+                console.error(error);
+            }
+        }
+
+        async function deleteArticle(articleId) {
+            if (!confirm('Are you sure you want to delete this article?')) {
+                return;
+            }
+
+            try {
+                const result = await apiRequest(`/articles/${articleId}`, 'DELETE');
+                if (result.status === 'success') {
+                    showNotification('Article deleted successfully', 'success');
+                    loadArticles();
+                } else {
+                    showNotification('Error deleting article', 'error');
+                }
+            } catch (error) {
+                showNotification('Error deleting article', 'error');
+                console.error(error);
+            }
+        }
+
+        async function viewArticleDetails(articleId) {
+            try {
+                const result = await apiRequest(`/articles/${articleId}`);
+                if (result.status === 'success') {
+                    const article = result.data;
+                    const modal = document.createElement('div');
+                    modal.className = 'modal active';
+                    modal.innerHTML = `
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2 class="modal-title">${article.title}</h2>
+                                <button class="close-modal" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="article-meta">
+                                    <p><strong>Type:</strong> ${article.type}</p>
+                                    <p><strong>Status:</strong> ${article.status}</p>
+                                    <p><strong>Author:</strong> ${article.author || 'Unknown'}</p>
+                                    <p><strong>Created:</strong> ${new Date(article.created_at).toLocaleString()}</p>
+                                    <p><strong>Updated:</strong> ${new Date(article.updated_at).toLocaleString()}</p>
+                                    <p><strong>Views:</strong> ${article.view_count}</p>
+                                </div>
+                                <hr>
+                                <h3>Summary</h3>
+                                <p>${article.summary || 'No summary available'}</p>
+                                <hr>
+                                <h3>Content</h3>
+                                <div style="white-space: pre-wrap; background: #f8f9fa; padding: 1rem; border-radius: 4px;">
+                                    ${article.content}
+                                </div>
+                                ${article.tags && article.tags.length > 0 ? `
+                                    <hr>
+                                    <h3>Tags</h3>
+                                    <div class="tags">
+                                        ${article.tags.map(tag => `<span class="tag">${tag.name}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                                ${article.images && article.images.length > 0 ? `
+                                    <hr>
+                                    <h3>Images</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+                                        ${article.images.map(image => `
+                                            <img src="${API_URL}/media/serve/${image.path}" 
+                                                 alt="${image.alt_text}" 
+                                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;">
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                }
+            } catch (error) {
+                showNotification('Error loading article details', 'error');
+                console.error(error);
+            }
+        }
+
+        // Featured Articles
+        async function showFeaturedArticles() {
+            showLoading();
+            try {
+                const result = await apiRequest('/articles/featured');
+                if (result.status === 'success') {
+                    displayArticles(result.data);
+                } else {
+                    showNotification('Error loading featured articles', 'error');
+                }
+            } catch (error) {
+                showNotification('Error loading featured articles', 'error');
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Tags Functions
+        async function showTags() {
+            showLoading();
+            try {
+                const result = await apiRequest('/tags');
+                if (result.status === 'success') {
+                    const grid = document.getElementById('articlesGrid');
+                    grid.innerHTML = result.data.map(tag => `
+                        <div class="card">
+                            <div class="card-body">
+                                <h3>${tag.name}</h3>
+                                <p>${tag.description || 'No description'}</p>
+                                <button class="btn btn-primary" onclick="showArticlesByTag('${tag.slug}')">
+                                    View Articles
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    showNotification('Error loading tags', 'error');
+                }
+            } catch (error) {
+                showNotification('Error loading tags', 'error');
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function showArticlesByTag(tagSlug) {
+            showLoading();
+            try {
+                const result = await apiRequest(`/tags/${tagSlug}/articles`);
+                if (result.status === 'success') {
+                    displayArticles(result.data);
+                } else {
+                    showNotification('Error loading articles by tag', 'error');
+                }
+            } catch (error) {
+                showNotification('Error loading articles by tag', 'error');
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // UI Helper Functions
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('articlesGrid').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('articlesGrid').style.display = 'grid';
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+
+        // Tag input handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const tagInput = document.getElementById('tagInput');
+            if (tagInput) {
+                tagInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTag();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

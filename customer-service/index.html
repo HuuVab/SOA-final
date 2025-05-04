@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Management Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem 0;
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .content-header h1 {
+            font-size: 2rem;
+            color: #2c3e50;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Table */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th,
+        .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #27ae60;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.1);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+
+        .status-verified {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-unverified {
+            background: #e74c3c;
+            color: white;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            color: white;
+            z-index: 2000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification-success {
+            background: #27ae60;
+        }
+
+        .notification-error {
+            background: #e74c3c;
+        }
+
+        .notification-info {
+            background: #3498db;
+        }
+
+        /* Search Bar */
+        .search-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .table {
+                display: block;
+                overflow-x: auto;
+            }
+
+            .search-bar {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="logo">Customer Management</div>
+            <button class="btn btn-primary" onclick="refreshCustomers()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </nav>
+
+    <main class="container main-content">
+        <div class="content-header">
+            <h1>Customer Administration</h1>
+            <div>
+                <span id="totalCustomers" style="color: #666;">Loading...</span>
+            </div>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search customers by email, name, or phone...">
+            <button class="btn btn-primary" onclick="searchCustomers()">
+                <i class="fas fa-search"></i> Search
+            </button>
+            <button class="btn btn-success" onclick="clearSearch()">
+                <i class="fas fa-times"></i> Clear
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Customer List</h2>
+            </div>
+            <div class="card-body">
+                <table class="table" id="customersTable">
+                    <thead>
+                        <tr>
+                            <th>Customer ID</th>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Address</th>
+                            <th>Email Verified</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersBody">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading customers...</p>
+        </div>
+    </main>
+
+    <!-- Edit Customer Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Customer</h2>
+                <button class="close-modal" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm" onsubmit="handleEditSubmit(event)">
+                    <input type="hidden" id="editCustomerId">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="editEmail">Email</label>
+                        <input type="email" class="form-control" id="editEmail" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="editFirstName">First Name</label>
+                        <input type="text" class="form-control" id="editFirstName">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="editLastName">Last Name</label>
+                        <input type="text" class="form-control" id="editLastName">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="editPhone">Phone</label>
+                        <input type="text" class="form-control" id="editPhone">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="editAddress">Address</label>
+                        <input type="text" class="form-control" id="editAddress">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="editEmailVerified"> Email Verified
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-success" onclick="closeEditModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+if (window.MANAGER_TOKEN) {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+        if (!options.headers) {
+            options.headers = {};
+        }
+        
+        if (url.includes('/api/')) {
+            options.headers['Authorization'] = `Bearer ${window.MANAGER_TOKEN}`;
+        }
+        
+        return originalFetch(url, options);
+    };
+}
+        // API Configuration
+        const API_URL = 'http://localhost:5000/api';
+        const MANAGER_INFO = window.MANAGER_INFO;
+        const MANAGER_TOKEN = window.MANAGER_TOKEN;
+        // State
+        let allCustomers = [];
+        let filteredCustomers = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkManagerAuth();
+            loadCustomers();
+        });
+
+        // Customer Management Functions
+        async function loadCustomers() {
+            showLoading();
+            try {
+                const response = await fetch(`${API_URL}/customers/all`, {
+                    headers: {
+                        'Authorization': `Bearer ${window.MANAGER_TOKEN}`
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    allCustomers = data.customers;
+                    filteredCustomers = [...allCustomers];
+                    displayCustomers(filteredCustomers);
+                    updateCustomerCount();
+                } else {
+                    showNotification('Error loading customers', 'error');
+                }
+            } catch (error) {
+                showNotification('Error loading customers', 'error');
+                console.error(error);
+            } finally {
+                hideLoading();
+            }
+        }
+        function checkManagerAuth() {
+            if (window.MANAGER_INFO && window.MANAGER_TOKEN) {
+                // Add manager info to navbar
+                const managerInfo = document.createElement('div');
+                managerInfo.style.cssText = 'margin-left: auto;';
+                managerInfo.innerHTML = `Manager: ${window.MANAGER_INFO.full_name || window.MANAGER_INFO.username}`;
+                document.querySelector('.navbar-content').appendChild(managerInfo);
+            }
+        }
+
+        function logout() {
+            // Clear cookies
+            document.cookie = 'manager_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'manager_info=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            
+            // Redirect to manager login
+            window.location.href = 'http://localhost:5015/';
+        }
+        function displayCustomers(customers) {
+            const tbody = document.getElementById('customersBody');
+            
+            if (!customers || customers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">No customers found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = customers.map(customer => `
+                <tr>
+                    <td>${customer.customer_id}</td>
+                    <td>${customer.email}</td>
+                    <td>${customer.first_name || ''} ${customer.last_name || ''}</td>
+                    <td>${customer.phone || '-'}</td>
+                    <td>${customer.address || '-'}</td>
+                    <td>
+                        <span class="status-badge ${customer.email_verified ? 'status-verified' : 'status-unverified'}">
+                            ${customer.email_verified ? 'Verified' : 'Unverified'}
+                        </span>
+                    </td>
+                    <td>${customer.last_login ? new Date(customer.last_login).toLocaleString() : 'Never'}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small" onclick="editCustomer('${customer.customer_id}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="deleteCustomer('${customer.customer_id}', '${customer.email.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function searchCustomers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredCustomers = allCustomers.filter(customer => {
+                const searchableText = [
+                    customer.email,
+                    customer.first_name,
+                    customer.last_name,
+                    customer.phone,
+                    customer.address
+                ].filter(Boolean).join(' ').toLowerCase();
+                
+                return searchableText.includes(searchTerm);
+            });
+            
+            displayCustomers(filteredCustomers);
+            updateCustomerCount();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            filteredCustomers = [...allCustomers];
+            displayCustomers(filteredCustomers);
+            updateCustomerCount();
+        }
+
+        function updateCustomerCount() {
+            const total = document.getElementById('totalCustomers');
+            const count = filteredCustomers.length;
+            const totalCount = allCustomers.length;
+            total.textContent = `Showing ${count} of ${totalCount} customers`;
+        }
+
+        // Modal Functions
+        function editCustomer(customerId) {
+            const customer = allCustomers.find(c => c.customer_id === customerId);
+            if (!customer) return;
+
+            document.getElementById('editCustomerId').value = customer.customer_id;
+            document.getElementById('editEmail').value = customer.email;
+            document.getElementById('editFirstName').value = customer.first_name || '';
+            document.getElementById('editLastName').value = customer.last_name || '';
+            document.getElementById('editPhone').value = customer.phone || '';
+            document.getElementById('editAddress').value = customer.address || '';
+            document.getElementById('editEmailVerified').checked = customer.email_verified;
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        async function handleEditSubmit(event) {
+            event.preventDefault();
+            
+            const customerId = document.getElementById('editCustomerId').value;
+            const customerData = {
+                first_name: document.getElementById('editFirstName').value,
+                last_name: document.getElementById('editLastName').value,
+                phone: document.getElementById('editPhone').value,
+                address: document.getElementById('editAddress').value,
+                email_verified: document.getElementById('editEmailVerified').checked
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/customers/${customerId}/update`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${window.MANAGER_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(customerData)
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    showNotification('Customer updated successfully', 'success');
+                    closeEditModal();
+                    loadCustomers();
+                } else {
+                    showNotification(data.message || 'Error updating customer', 'error');
+                }
+            } catch (error) {
+                showNotification('Error updating customer', 'error');
+                console.error(error);
+            }
+        }
+
+        async function deleteCustomer(customerId, email) {
+            if (!confirm(`Are you sure you want to delete customer: ${email}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/customers/${customerId}/delete`, {
+                    headers: {
+                        'Authorization': `Bearer ${window.MANAGER_TOKEN}`
+                    },
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    showNotification(`Customer ${email} deleted successfully`, 'success');
+                    loadCustomers();
+                } else {
+                    showNotification(data.message || 'Error deleting customer', 'error');
+                }
+            } catch (error) {
+                showNotification('Error deleting customer', 'error');
+                console.error(error);
+            }
+        }
+
+        function refreshCustomers() {
+            loadCustomers();
+        }
+
+        // UI Helper Functions
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('customersTable').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('customersTable').style.display = 'table';
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+
+        // Search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCustomers();
+            }
+        });
+    </script>
+</body>
+</html>

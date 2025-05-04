@@ -1,15 +1,6 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7.0-alpine
-    container_name: ecommerce-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - ecommerce-network
-    restart: unless-stopped
-
   # User  Service
   customer-service:
     build: ./customer-service
@@ -175,8 +166,8 @@ services:
       - DB_SERVICE_URL=http://database-service:5003/api
       - CUSTOMER_SERVICE_URL=http://customer-service:5000/api
       - CART_SERVICE_URL=http://cart-service:5008/api
-      - EMAIL_SERVICE_URL=http://email-service:5002
-      - EMAIL_SERVICE_API_KEY=${EMAIL_SERVICE_API_KEY:-email_service_api_key}
+      - ORDER_SERVICE_URL=http://order-service:5010/api
+      - DB_NAME=/data/payment.sqlite 
       - FLASK_DEBUG=false
     volumes:
       - ./payment-service:/app
@@ -187,7 +178,6 @@ services:
       - database-service
       - customer-service
       - cart-service
-      - email-service
 
   order-service:
     build: ./order-service
@@ -201,7 +191,7 @@ services:
       - CUSTOMER_SERVICE_URL=http://customer-service:5000/api
       - PAYMENT_SERVICE_URL=http://payment-service:5009/api
       - PRODUCT_SERVICE_URL=http://storage-service:5005/api
-      - EMAIL_SERVICE_URL=http://email-service:5002
+      - EMAIL_SERVICE_URL=http://email-service:5002/api
       - EMAIL_SERVICE_API_KEY=${EMAIL_SERVICE_API_KEY:-email_service_api_key}
       - ADMIN_TOKEN=${ADMIN_TOKEN:-admin-secret-token}
       - FLASK_DEBUG=false
@@ -213,44 +203,9 @@ services:
     depends_on:
       - database-service
       - customer-service
-      - payment-service
       - email-service
 
-  admin-service:
-    build: ./admin-service
-    container_name: ecommerce-admin-service
-    restart: always
-    ports:
-      - "5011:5011"
-    environment:
-      - PORT=5011
-      - DB_SERVICE_URL=http://database-service:5003/api
-      - CUSTOMER_SERVICE_URL=http://customer-service:5000/api
-      - CART_SERVICE_URL=http://cart-service:5008/api
-      - PAYMENT_SERVICE_URL=http://payment-service:5009/api
-      - ORDER_SERVICE_URL=http://order-service:5010/api
-      - EMAIL_SERVICE_URL=http://email-service:5002
-      - MEDIA_SERVICE_URL=http://media-service:5007/api
-      - STORAGE_SERVICE_URL=http://storage-service:5005/api
-      - PROMOTION_SERVICE_URL=http://promotion-service:5006/api
-      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-admin-secret-key}
-      - ADMIN_JWT_EXPIRATION=3600
-      - FLASK_DEBUG=false
-    volumes:
-      - ./admin-service:/app
-      - ./data:/data
-    networks:
-      - ecommerce-network
-    depends_on:
-      - database-service
-      - customer-service
-      - cart-service
-      - order-service
-      - payment-service
-      - email-service
-      - media-service
-      - storage-service
-      - promotion-service
+
 
   frontend-service:
     build: ./frontend-service
@@ -265,6 +220,8 @@ services:
       - promotion-service
     networks:
       - ecommerce-network
+
+
 networks:
   ecommerce-network:
     driver: bridge
