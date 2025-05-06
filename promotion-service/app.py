@@ -113,7 +113,37 @@ class PromotionService:
         except Exception as e:
             logger.error(f"Error initializing promotions table: {e}")
             return False
-    
+    def get_all_products(self):
+        """Get all available products from the storage service"""
+        try:
+            # Use environment variable or default to service name in docker network
+            storage_service_url = os.environ.get('STORAGE_SERVICE_URL', 'http://localhost:5005')
+            
+            # Make API call to storage service
+            api_url = f"{storage_service_url}/api/products"
+            logger.info(f"Calling storage service API to get all products: {api_url}")
+            
+            api_response = requests.get(api_url, timeout=10)  # Longer timeout for potentially large data
+            
+            if api_response.status_code == 200:
+                result = api_response.json()
+                if result.get('status') == 'success' and result.get('data'):
+                    return {
+                        "status": "success", 
+                        "message": f"Retrieved {len(result.get('data'))} products",
+                        "data": result.get('data')
+                    }
+            
+            # If API call failed, log detailed information
+            logger.error(f"Failed to retrieve products from storage service: Status {api_response.status_code}, Response: {api_response.text}")
+            
+            return {
+                "status": "error",
+                "message": f"Could not retrieve products (Status: {api_response.status_code})"
+            }
+        except Exception as e:
+            logger.error(f"Error retrieving products: {e}")
+            return {"status": "error", "message": str(e)}
     def get_all_promotions(self):
         """Get all promotions"""
         try:
@@ -663,7 +693,17 @@ def health_check():
     except Exception as e:
         logger.error(f"Error in health_check route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
+@app.route('/api/products', methods=['GET'])
+def get_all_products():
+    """Get all available products"""
+    try:
+        result = promotion_service.get_all_products()
+        if result['status'] == 'error':
+            return jsonify(result), 500
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in get_all_products route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')

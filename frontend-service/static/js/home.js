@@ -144,7 +144,7 @@ function displayTechNewsGrid(items) {
         });
         
         // If we have less than 4 items, fill with placeholders
-        if (itemsToShow.length < 4) {
+        if (itemsToShow.length < 2) {
             const placeholdersNeeded = 4 - itemsToShow.length;
             for (let i = 0; i < placeholdersNeeded; i++) {
                 const placeholderCol = document.createElement('div');

@@ -220,7 +220,18 @@ services:
       - promotion-service
     networks:
       - ecommerce-network
-
+  ngrok:
+      image: ngrok/ngrok:latest
+      container_name: ecommerce-ngrok
+      ports:
+        - "4040:4040"  # The ngrok web interface
+      environment:
+        - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-your_auth_token}
+      command: http frontend-service:5012
+      networks:
+        - ecommerce-network
+      depends_on:
+        - frontend-service
 
 networks:
   ecommerce-network:

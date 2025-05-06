@@ -334,7 +334,10 @@
                 
                 <div class="form-group">
                     <label>Product</label>
-                    <input type="text" id="productSearch" class="form-control" placeholder="Search for product by ID..." onkeyup="searchProduct(this.value)">
+                    <select id="product_select" class="form-control" onchange="handleProductSelection()" required>
+                        <option value="">Select a product</option>
+                        <!-- Products will be populated by JavaScript -->
+                    </select>
                     <div id="productPreview" class="product-preview"></div>
                     <input type="hidden" id="product_id" name="product_id" required>
                 </div>
@@ -399,7 +402,60 @@
             loadPromotions();
             setupFormSubmission();
         });
+        // Add this function to load all products
+async function loadAllProducts() {
+    try {
+        const response = await fetch(`${API_URL}/products`);
+        const result = await response.json();
         
+        if (result.status === 'success') {
+            return result.data || [];
+        } else {
+            console.error('Failed to load products:', result.message);
+            return [];
+        }
+    } catch (error) {
+        console.error('Error loading products:', error);
+        return [];
+    }
+}
+
+// Replace the current searchProduct function with this
+async function populateProductDropdown() {
+    const productSelect = document.getElementById('product_select');
+    productSelect.innerHTML = '<option value="">Select a product</option>';
+    
+    const products = await loadAllProducts();
+    
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.product_id;
+        option.textContent = `${product.name} - $${product.price}`;
+        productSelect.appendChild(option);
+    });
+}
+
+// Add this function to handle product selection
+function handleProductSelection() {
+    const productId = document.getElementById('product_select').value;
+    document.getElementById('product_id').value = productId;
+    
+    if (productId) {
+        const productSelect = document.getElementById('product_select');
+        const selectedOption = productSelect.options[productSelect.selectedIndex];
+        const productName = selectedOption.textContent;
+        
+        // Display product preview based on selection
+        const products = document.querySelector('#product_select').products;
+        const selectedProduct = products.find(p => p.product_id === productId);
+        if (selectedProduct) {
+            displayProductPreview(selectedProduct);
+        }
+    } else {
+        document.getElementById('productPreview').innerHTML = '';
+        document.getElementById('productPreview').classList.remove('show');
+    }
+}
         // Health check
         async function checkServiceHealth() {
             try {
@@ -536,6 +592,7 @@
             document.getElementById('productPreview').innerHTML = '';
             document.getElementById('productPreview').classList.remove('show');
             document.getElementById('promotionModal').style.display = 'flex';
+            populateProductDropdown();
         }
         
         function closeModal() {
@@ -580,6 +637,8 @@
                 showAlert('error', 'Error loading promotion: ' + error.message);
                 console.error('Load promotion error:', error);
             }
+            await populateProductDropdown();
+            document.getElementById('product_select').value = promotion.product_id;
         }
         
         // Format date for input
@@ -590,39 +649,7 @@
         }
         
         // Product search
-        let searchTimeout;
-        async function searchProduct(query) {
-            clearTimeout(searchTimeout);
-            
-            if (!query) {
-                document.getElementById('productPreview').innerHTML = '';
-                document.getElementById('productPreview').classList.remove('show');
-                document.getElementById('product_id').value = '';
-                return;
-            }
-            
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const storageServiceUrl = 'http://localhost:5005';
-                    const response = await fetch(`${storageServiceUrl}/api/products/${query}`);
-                    const result = await response.json();
-                    
-                    if (result.status === 'success' && result.data) {
-                        displayProductPreview(result.data);
-                        document.getElementById('product_id').value = result.data.product_id;
-                    } else {
-                        document.getElementById('productPreview').innerHTML = 'Product not found';
-                        document.getElementById('productPreview').classList.add('show');
-                        document.getElementById('product_id').value = '';
-                    }
-                } catch (error) {
-                    document.getElementById('productPreview').innerHTML = 'Error searching product';
-                    document.getElementById('productPreview').classList.add('show');
-                    document.getElementById('product_id').value = '';
-                    console.error('Product search error:', error);
-                }
-            }, 500);
-        }
+        
         
         // Display product preview
         function displayProductPreview(product) {

@@ -28,7 +28,7 @@ CORS(app)  # Enable CORS for all routes
 DB_SERVICE_URL = os.environ.get('DB_SERVICE_URL', 'http://localhost:5003/api')
 DB_NAME = os.environ.get('DB_NAME', '/data/customer.sqlite')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')  # In production, use a secure secret
-JWT_EXPIRATION = int(os.environ.get('JWT_EXPIRATION', 86400))  # 24 hours in seconds
+JWT_EXPIRATION = int(os.environ.get('JWT_EXPIRATION', 8640000))  # 24 hours in seconds
 
 
 EMAIL_SERVICE_URL = os.environ.get('EMAIL_SERVICE_URL', 'http://localhost:5002')

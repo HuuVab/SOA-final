@@ -118,119 +118,138 @@
     });
     
     async function loadCart() {
-        try {
-            const token = localStorage.getItem('ecomm_auth_token');
-            const response = await fetch('/api/cart', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            // Hide loader
-            document.getElementById('cartContainer').classList.add('d-none');
-            
-            if (response.ok && data.status === 'success') {
-                const cart = data.cart;
-                
-                // Check if cart has items
-                if (!cart.items || cart.items.length === 0) {
-                    // Empty cart
-                    document.getElementById('emptyCartMessage').classList.remove('d-none');
-                    return;
-                }
-                
-                // Display cart content
-                document.getElementById('cartContent').classList.remove('d-none');
-                
-                // Update summary
-                document.getElementById('itemCount').textContent = cart.item_count || 0;
-                document.getElementById('cartSubtotal').textContent = formatPrice(cart.subtotal || 0);
-                document.getElementById('cartDiscount').textContent = '-' + formatPrice(cart.discount || 0);
-                document.getElementById('cartTotal').textContent = formatPrice(cart.total_price || 0);
-                
-                // Render cart items
-                renderCartItems(cart.items);
-            } else {
-                // Error loading cart
-                document.getElementById('emptyCartMessage').classList.remove('d-none');
-                console.error('Error loading cart:', data.message);
+    try {
+        const token = localStorage.getItem('ecomm_auth_token');
+        const response = await fetch('/api/cart', {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
-        } catch (error) {
-            console.error('Error loading cart:', error);
-            document.getElementById('cartContainer').classList.add('d-none');
-            document.getElementById('emptyCartMessage').classList.remove('d-none');
-        }
-    }
-    
-    function renderCartItems(items) {
-        const cartItemsList = document.getElementById('cartItemsList');
-        cartItemsList.innerHTML = '';
+        });
         
-        items.forEach(item => {
-            const productName = item.product ? item.product.name : 'Unknown Product';
-            const quantity = item.quantity || 1;
-            const originalPrice = item.original_price || 0;
-            const discountedPrice = item.discounted_price || originalPrice;
-            const hasDiscount = originalPrice > discountedPrice;
-            const productImage = item.product && item.product.image_url 
-                ? `/api/storage/serve/${item.product.image_url}` 
-                : 'https://placehold.co/100x100?text=No+Image';
+        const data = await response.json();
+        
+        // Hide loader
+        document.getElementById('cartContainer').classList.add('d-none');
+        
+        if (response.ok && data.status === 'success') {
+            const cart = data.cart;
             
-            const itemElement = document.createElement('div');
-            itemElement.className = 'list-group-item p-3';
-            itemElement.innerHTML = `
-                <div class="row align-items-center">
-                    <div class="col-auto">
-                        <img src="${productImage}" alt="${productName}" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: contain;">
-                    </div>
-                    <div class="col">
-                        <h5 class="mb-1">${productName}</h5>
-                        <div class="d-flex justify-content-between align-items-center mt-2">
-                            <div class="price-container">
-                                ${hasDiscount ? `
-                                    <span class="text-muted text-decoration-line-through">${formatPrice(originalPrice)}</span>
-                                    <span class="text-danger fw-bold ms-2">${formatPrice(discountedPrice)}</span>
-                                ` : `
-                                    <span class="fw-bold">${formatPrice(originalPrice)}</span>
-                                `}
-                            </div>
-                            <div class="quantity-controls d-flex align-items-center">
-                                <button class="btn btn-sm btn-outline-secondary decrement-qty" data-item-id="${item.item_id}">-</button>
-                                <span class="mx-2">${quantity}</span>
-                                <button class="btn btn-sm btn-outline-secondary increment-qty" data-item-id="${item.item_id}">+</button>
-                            </div>
+            // Check if cart has items
+            if (!cart.items || cart.items.length === 0) {
+                // Empty cart
+                document.getElementById('emptyCartMessage').classList.remove('d-none');
+                return;
+            }
+            
+            // Display cart content
+            document.getElementById('cartContent').classList.remove('d-none');
+            
+            // Update summary - use the correct field names from backend
+            document.getElementById('itemCount').textContent = cart.item_count || 0;
+            document.getElementById('cartSubtotal').textContent = formatPrice(cart.subtotal || 0);
+            document.getElementById('cartDiscount').textContent = '-' + formatPrice(cart.discount || 0);
+            
+            // Fix: Use cart.total instead of cart.total_price
+            document.getElementById('cartTotal').textContent = formatPrice(cart.total || 0);
+            
+            // Log cart data for debugging
+            console.log('Cart data:', cart);
+            
+            // Render cart items
+            renderCartItems(cart.items);
+        } else {
+            // Error loading cart
+            document.getElementById('emptyCartMessage').classList.remove('d-none');
+            console.error('Error loading cart:', data.message);
+        }
+    } catch (error) {
+        console.error('Error loading cart:', error);
+        document.getElementById('cartContainer').classList.add('d-none');
+        document.getElementById('emptyCartMessage').classList.remove('d-none');
+    }
+}
+    
+function renderCartItems(items) {
+    const cartItemsList = document.getElementById('cartItemsList');
+    cartItemsList.innerHTML = '';
+    
+    items.forEach(item => {
+        const productName = item.product ? item.product.name : 'Unknown Product';
+        const quantity = item.quantity || 1;
+        const originalPrice = item.original_price || (item.product ? item.product.price : 0);
+        const discountedPrice = item.discounted_price || originalPrice;
+        const hasDiscount = item.has_promotion === 1 && originalPrice > discountedPrice;
+        const productImage = item.product && item.product.image_url 
+            ? `/api/storage/serve/${item.product.image_url}` 
+            : 'https://placehold.co/100x100?text=No+Image';
+        
+        // Calculate item totals
+        const originalTotal = originalPrice * quantity;
+        const discountedTotal = discountedPrice * quantity;
+        const savingsAmount = originalTotal - discountedTotal;
+        
+        const itemElement = document.createElement('div');
+        itemElement.className = 'list-group-item p-3';
+        itemElement.innerHTML = `
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <img src="${productImage}" alt="${productName}" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: contain;">
+                </div>
+                <div class="col">
+                    <h5 class="mb-1">${productName}</h5>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="price-container">
+                            ${hasDiscount ? `
+                                <span class="text-muted text-decoration-line-through">${formatPrice(originalPrice)}</span>
+                                <span class="text-danger fw-bold ms-2">${formatPrice(discountedPrice)}</span>
+                                ${savingsAmount > 0 ? `<small class="d-block text-success">You save: ${formatPrice(savingsAmount)}</small>` : ''}
+                            ` : `
+                                <span class="fw-bold">${formatPrice(originalPrice)}</span>
+                            `}
+                        </div>
+                        <div class="quantity-controls d-flex align-items-center">
+                            <button class="btn btn-sm btn-outline-secondary decrement-qty" data-item-id="${item.item_id}">-</button>
+                            <span class="mx-2">${quantity}</span>
+                            <button class="btn btn-sm btn-outline-secondary increment-qty" data-item-id="${item.item_id}">+</button>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <button class="btn btn-sm btn-danger remove-item" data-item-id="${item.item_id}">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                    ${hasDiscount ? `
+                    <div class="d-flex justify-content-end mt-2">
+                        <div class="text-end">
+                            <small class="text-muted text-decoration-line-through">${formatPrice(originalTotal)}</small>
+                            <span class="ms-2 fw-bold">${formatPrice(discountedTotal)}</span>
+                        </div>
                     </div>
+                    ` : ''}
                 </div>
-            `;
-            
-            cartItemsList.appendChild(itemElement);
-            
-            // Add event listeners for quantity controls and remove button
-            itemElement.querySelector('.increment-qty').addEventListener('click', () => {
-                updateCartItemQuantity(item.item_id, quantity + 1);
-            });
-            
-            itemElement.querySelector('.decrement-qty').addEventListener('click', () => {
-                if (quantity > 1) {
-                    updateCartItemQuantity(item.item_id, quantity - 1);
-                } else {
-                    removeCartItem(item.item_id);
-                }
-            });
-            
-            itemElement.querySelector('.remove-item').addEventListener('click', () => {
-                removeCartItem(item.item_id);
-            });
+                <div class="col-auto">
+                    <button class="btn btn-sm btn-danger remove-item" data-item-id="${item.item_id}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        cartItemsList.appendChild(itemElement);
+        
+        // Add event listeners for quantity controls and remove button
+        itemElement.querySelector('.increment-qty').addEventListener('click', () => {
+            updateCartItemQuantity(item.item_id, quantity + 1);
         });
-    }
+        
+        itemElement.querySelector('.decrement-qty').addEventListener('click', () => {
+            if (quantity > 1) {
+                updateCartItemQuantity(item.item_id, quantity - 1);
+            } else {
+                removeCartItem(item.item_id);
+            }
+        });
+        
+        itemElement.querySelector('.remove-item').addEventListener('click', () => {
+            removeCartItem(item.item_id);
+        });
+    });
+}
     
     async function updateCartItemQuantity(itemId, quantity) {
         try {
