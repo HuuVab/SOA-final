@@ -1,0 +1,947 @@
+{% extends "layout.html" %}
+
+{% block title %}Product Details{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading product information...</p>
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessage" class="alert alert-danger d-none" role="alert">
+        We couldn't load this product. Please try again later.
+    </div>
+    
+    <!-- Product Detail Container -->
+    <div id="productDetail" class="row d-none">
+        <!-- Product Images -->
+        <div class="col-md-6 mb-4">
+            <div id="productImage" class="text-center">
+                <img src="/api/placeholder/400/400" class="img-fluid rounded shadow-sm" alt="Product Image" id="mainProductImage">
+            </div>
+            <!-- Product Thumbnails Container (if multiple images) -->
+            <div id="productThumbnails" class="d-flex flex-wrap justify-content-center mt-3 gap-2"></div>
+        </div>
+        
+        <!-- Product Info -->
+        <div class="col-md-6">
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Home</a></li>
+                    <li class="breadcrumb-item"><a href="/shop">Shop</a></li>
+                    <li class="breadcrumb-item"><a href="#" id="categoryLink">Category</a></li>
+                    <li class="breadcrumb-item active" aria-current="page" id="breadcrumbName">Product</li>
+                </ol>
+            </nav>
+            
+            <h1 id="productName" class="h2 mb-2">Product Name</h1>
+            <div class="mb-3">
+                <div class="d-flex align-items-center">
+                    <span id="productPrice" class="fs-4 fw-bold">$0.00</span>
+                    <span id="discountedPrice" class="d-none ms-2">
+                        <span class="text-decoration-line-through text-muted me-2" id="originalPrice">$0.00</span>
+                        <span class="badge bg-danger">Sale</span>
+                    </span>
+                </div>
+                <div class="mt-1">
+                    <span class="text-success" id="stockStatus">In Stock</span>
+                </div>
+            </div>
+            
+            <p id="productCategory" class="badge bg-secondary mb-2">Category</p>
+            <div id="productDescription" class="mb-4">Product description will appear here.</div>
+            
+            <!-- Add to Cart -->
+            <div class="card bg-light p-3 mb-4">
+                <div class="d-flex align-items-center mb-3">
+                    <label for="quantityInput" class="form-label me-3 mb-0">Quantity:</label>
+                    <div class="input-group" style="width: 130px;">
+                        <button class="btn btn-outline-secondary" type="button" id="decreaseQuantity">-</button>
+                        <input type="number" class="form-control text-center" id="quantityInput" value="1" min="1">
+                        <button class="btn btn-outline-secondary" type="button" id="increaseQuantity">+</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary w-100" id="addToCartBtn">
+                    <i class="bi bi-cart-plus me-2"></i>Add to Cart
+                </button>
+            </div>
+            
+            <!-- Additional Product Information (if available) -->
+            <div id="additionalInfo"></div>
+        </div>
+    </div>
+    
+    <!-- Related Products -->
+    <div class="mt-5" id="relatedProductsSection">
+        <h3>Related Products</h3>
+        <div class="row g-4" id="relatedProducts"></div>
+    </div>
+</div>
+
+<!-- Login Modal (shown when user tries to add to cart without being logged in) -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="loginModalLabel">Sign In Required</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Please sign in to add items to your cart.</p>
+                <form id="productLoginForm" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="productLoginEmail" class="form-label">Email address</label>
+                        <input type="email" class="form-control" id="productLoginEmail" required>
+                        <div class="invalid-feedback">
+                            Please enter a valid email address.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="productLoginPassword" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="productLoginPassword" required>
+                        <div class="invalid-feedback">
+                            Please enter your password.
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="productRememberMe">
+                        <label class="form-check-label" for="productRememberMe">Remember me</label>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                        <a href="/forgot-password" class="text-decoration-none">Forgot Password?</a>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <p class="w-100 text-center mb-0">Don't have an account? <a href="/register" class="text-decoration-none">Register</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Product detail page initialized");
+        
+        // Get product ID from URL with better error handling
+        const urlParts = window.location.pathname.split('/');
+        const productId = urlParts[urlParts.length - 1];
+        
+        console.log("Product ID from URL:", productId);
+        
+        if (!productId) {
+            console.error("No product ID found in URL");
+            document.getElementById('loadingIndicator').classList.add('d-none');
+            document.getElementById('errorMessage').classList.remove('d-none');
+            document.getElementById('errorMessage').textContent = 'Invalid product URL. Please return to the shop.';
+            return;
+        }
+        
+        // Initialize quantity controls
+        document.getElementById('decreaseQuantity').addEventListener('click', function() {
+            const input = document.getElementById('quantityInput');
+            const currentValue = parseInt(input.value) || 1;
+            if (currentValue > 1) {
+                input.value = currentValue - 1;
+            }
+        });
+        
+        document.getElementById('increaseQuantity').addEventListener('click', function() {
+            const input = document.getElementById('quantityInput');
+            const currentValue = parseInt(input.value) || 1;
+            input.value = currentValue + 1;
+        });
+        
+        // Load product details
+        loadProductDetails(productId);
+        
+        // Event listener for add to cart button
+        document.getElementById('addToCartBtn').addEventListener('click', function() {
+            const quantity = parseInt(document.getElementById('quantityInput').value) || 1;
+            
+            // Use the addToCart function from main.js if it exists, otherwise fall back to local implementation
+            if (typeof addToCart === 'function') {
+                addToCart(productId, quantity);
+            } else {
+                // Fallback implementation
+                fallbackAddToCart(productId, quantity);
+            }
+        });
+        
+        // Initialize login form
+        const loginForm = document.getElementById('productLoginForm');
+if (loginForm) {
+    loginForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (!this.checkValidity()) {
+            event.stopPropagation();
+            this.classList.add('was-validated');
+            return;
+        }
+        
+        const email = document.getElementById('productLoginEmail').value;
+        const password = document.getElementById('productLoginPassword').value;
+        const rememberMe = document.getElementById('productRememberMe').checked;
+        
+        // Call your login API here
+        fetch('/api/customers/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                remember_me: rememberMe
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Save auth token
+                localStorage.setItem('ecomm_auth_token', data.token);
+                
+                // Hide modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+                modal.hide();
+                
+                // Show success message
+                showToast('Successfully logged in!', 'success');
+                
+                // Initialize cart
+                if (typeof initializeCart === 'function') {
+                    initializeCart();
+                }
+            } else {
+                showToast(data.message || 'Login failed. Please check your credentials.', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error during login:', error);
+            showToast('An error occurred during login. Please try again.', 'danger');
+        });
+    });
+}
+        
+        // Initialize cart if possible
+        if (typeof initializeCart === 'function') {
+            initializeCart();
+        }
+    });
+
+    function loadProductDetails(productId) {
+        console.log("Loading product details for:", productId);
+        
+        document.getElementById('loadingIndicator').classList.remove('d-none');
+        document.getElementById('productDetail').classList.add('d-none');
+        document.getElementById('errorMessage').classList.add('d-none');
+        document.getElementById('relatedProductsSection').classList.add('d-none');
+        
+        const apiUrl = `/api/frontend/product/${productId}`;
+        console.log("Fetching from API:", apiUrl);
+        
+        fetch(apiUrl)
+            .then(response => {
+                console.log("API response status:", response.status);
+                if (!response.ok) {
+                    throw new Error(`Product not found (Status: ${response.status})`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("API response data:", data);
+                
+                if (data.status === 'success' && data.data) {
+                    renderProductDetails(data.data);
+                    loadRelatedProducts(data.data.category, productId);
+                    document.getElementById('loadingIndicator').classList.add('d-none');
+                    document.getElementById('productDetail').classList.remove('d-none');
+                    document.getElementById('relatedProductsSection').classList.remove('d-none');
+                } else {
+                    throw new Error(data.message || 'Invalid product data');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading product:', error);
+                document.getElementById('loadingIndicator').classList.add('d-none');
+                document.getElementById('errorMessage').classList.remove('d-none');
+                document.getElementById('errorMessage').textContent = 'We couldn\'t find this product. It may no longer be available.';
+            });
+    }
+
+    function renderProductDetails(product) {
+    console.log("Rendering product details:", product);
+    
+    // Log all promotion-related fields to debug
+    console.log("Promotion data:", {
+        product_name: product.name,
+        product_id: product.product_id,
+        has_promotion: product.has_promotion,
+        price: product.price,
+        discounted_price: product.discounted_price,
+        promotion: product.promotion
+    });
+    
+    // Set page title and breadcrumb
+    document.title = product.name + ' | Your Store';
+    document.getElementById('breadcrumbName').textContent = product.name;
+    document.getElementById('categoryLink').textContent = product.category || 'Uncategorized';
+    document.getElementById('categoryLink').href = '/shop?category=' + encodeURIComponent(product.category || '');
+    
+    // Update product details
+    document.getElementById('productName').textContent = product.name;
+    document.getElementById('productCategory').textContent = product.category || 'Uncategorized';
+    
+    // Set stock status
+    const stockStatus = document.getElementById('stockStatus');
+    if (product.in_stock !== false) {  // Assume in stock unless explicitly false
+        stockStatus.textContent = 'In Stock';
+        stockStatus.className = 'text-success';
+    } else {
+        stockStatus.textContent = 'Out of Stock';
+        stockStatus.className = 'text-danger';
+    }
+    
+    // Handle description (support HTML if needed)
+    if (product.description) {
+        document.getElementById('productDescription').innerHTML = product.description.replace(/\n/g, '<br>');
+    } else {
+        document.getElementById('productDescription').innerHTML = 'No description available.';
+    }
+    
+    // Handle pricing and promotions
+    try {
+        // Robust promotion detection using multiple methods
+        // 1. Check explicit has_promotion flag
+        // 2. Check if there's a promotion object
+        // 3. Check if there's a discounted_price that is less than price
+        const hasPromotionFlag = !!product.has_promotion;
+        const hasPromotionObject = !!product.promotion;
+        const hasDiscountedPrice = typeof product.discounted_price === 'number' && product.discounted_price > 0;
+        const hasPrice = typeof product.price === 'number' && product.price > 0;
+        const isPriceDifferent = hasPrice && hasDiscountedPrice && product.discounted_price < product.price;
+        
+        // A product has a promotion if ANY of these conditions are true
+        const hasPromotion = hasPromotionFlag || hasPromotionObject || isPriceDifferent || has_promotion;
+        
+        // Additional debug for promotion calculation
+        console.log("Promotion detection details:", {
+            hasPromotionFlag,
+            hasPromotionObject,
+            hasDiscountedPrice,
+            hasPrice,
+            isPriceDifferent,
+            calculatedHasPromotion: hasPromotion
+        });
+        
+        if (hasPromotion) {
+            // Get the original and discounted prices, with fallbacks
+            const originalPrice = hasPrice ? product.price : 0;
+            // For discounted price, use the promotion object if available, otherwise use discounted_price field
+            let discountedPrice = hasDiscountedPrice ? product.discounted_price : originalPrice;
+            if (hasPromotionObject && typeof product.promotion.discounted_price === 'number') {
+                discountedPrice = product.promotion.discounted_price;
+            }
+            
+            // Make sure discounted price is not greater than original price
+            if (discountedPrice >= originalPrice) {
+                console.warn("Discounted price >= original price, adjusting for display", {
+                    originalPrice,
+                    discountedPrice
+                });
+                // If original price is valid but discounted price isn't lower, use 90% of original as fallback
+                if (originalPrice > 0) {
+                    discountedPrice = Math.round(originalPrice * 0.9 * 100) / 100; // 10% discount as fallback
+                }
+            }
+            
+            // Calculate discount percentage only if both prices are valid
+            let discountPercent = 0;
+            if (originalPrice > 0 && discountedPrice > 0 && discountedPrice < originalPrice) {
+                discountPercent = Math.round((1 - (discountedPrice / originalPrice)) * 100);
+            }
+            
+            console.log("Final price calculation:", {
+                originalPrice,
+                discountedPrice,
+                discountPercent
+            });
+            
+            // Update the DOM elements
+            document.getElementById('discountedPrice').classList.remove('d-none');
+            document.getElementById('originalPrice').textContent = '$' + originalPrice.toFixed(2);
+            document.getElementById('productPrice').textContent = '$' + discountedPrice.toFixed(2);
+            
+            // Highlight that this is on sale
+            const badgeElement = document.getElementById('discountedPrice').querySelector('.badge');
+            badgeElement.classList.add('bg-danger');
+            badgeElement.textContent = discountPercent > 0 ? `${discountPercent}% Off` : 'Sale';
+        } else {
+            // Regular price display
+            document.getElementById('discountedPrice').classList.add('d-none');
+            document.getElementById('productPrice').textContent = '$' + (hasPrice ? product.price : 0).toFixed(2);
+        }
+    } catch (e) {
+        console.error("Error rendering price:", e);
+        // Fallback to basic price display on error
+        document.getElementById('discountedPrice').classList.add('d-none');
+        document.getElementById('productPrice').textContent = '$' + (typeof product.price === 'number' ? product.price : 0).toFixed(2);
+    }
+    
+    // Enhanced image handling with better path detection
+    const mainProductImage = document.getElementById('mainProductImage');
+    const thumbnailsContainer = document.getElementById('productThumbnails');
+    thumbnailsContainer.innerHTML = '';
+    
+    // Initialize image list
+    let imageList = [];
+    
+    // Check all possible image sources
+    if (product.images && product.images.length > 0) {
+        imageList = product.images;
+    } else if (product.promotion && product.promotion.product && product.promotion.product.images) {
+        imageList = product.promotion.product.images;
+    } else if (product.data && Array.isArray(product.data)) {
+        imageList = product.data;
+    }
+    
+    if (imageList.length > 0) {
+        // Set main image - handle both path and image_path properties
+        const mainImageItem = imageList[0];
+        const mainImagePath = mainImageItem.path || mainImageItem.image_path;
+        
+        if (mainImagePath) {
+            const mainImageUrl = `/api/storage/serve/${mainImagePath}`;
+            console.log("Setting main product image to:", mainImageUrl);
+            
+            mainProductImage.src = mainImageUrl;
+            mainProductImage.setAttribute('data-path', mainImagePath);
+            
+            // Add error handler for main image
+            mainProductImage.onerror = function() {
+                console.warn("Main image failed to load:", mainImageUrl);
+                this.src = '/api/placeholder/400/400?text=Image+Not+Found';
+            };
+        } else {
+            console.warn("No valid image path found in first image:", mainImageItem);
+            mainProductImage.src = '/api/placeholder/400/400?text=No+Image';
+        }
+        
+        // If multiple images, create thumbnails
+        if (imageList.length > 1) {
+            console.log("Creating thumbnails for multiple images");
+            
+            imageList.forEach((img, index) => {
+                const imagePath = img.path || img.image_path;
+                if (!imagePath) {
+                    console.warn("No valid path for thumbnail image:", img);
+                    return; // Skip if no path
+                }
+                
+                const imageUrl = `/api/storage/serve/${imagePath}`;
+                
+                const thumb = document.createElement('div');
+                thumb.className = 'thumbnail-item';
+                
+                // Create thumbnail with error handler
+                thumb.innerHTML = `
+                    <img src="${imageUrl}" 
+                         class="img-thumbnail" 
+                         style="width: 70px; height: 70px; object-fit: cover; cursor: pointer;"
+                         alt="Product image"
+                         onerror="this.onerror=null; this.src='/api/placeholder/70/70?text=Error';">
+                `;
+                
+                // Handle thumbnail click
+                thumb.addEventListener('click', function() {
+                    mainProductImage.src = imageUrl;
+                    mainProductImage.setAttribute('data-path', imagePath);
+                });
+                
+                thumbnailsContainer.appendChild(thumb);
+            });
+        }
+    } else if (product.image_url) {
+        // Fallback to image_url
+        const imageUrl = `/api/storage/serve/${product.image_url}`;
+        console.log("Using image_url fallback:", imageUrl);
+        
+        mainProductImage.src = imageUrl;
+        mainProductImage.setAttribute('data-path', product.image_url);
+        
+        // Add error handler
+        mainProductImage.onerror = function() {
+            this.src = '/api/placeholder/400/400?text=Image+Not+Found';
+        };
+    } else {
+        console.warn("No images found for product:", product.product_id);
+        mainProductImage.src = '/api/placeholder/400/400?text=No+Image+Available';
+        mainProductImage.removeAttribute('data-path');
+    }
+    
+    // Additional product information
+    const additionalInfo = document.getElementById('additionalInfo');
+    additionalInfo.innerHTML = '';
+    
+    if (product.attributes && product.attributes.length > 0) {
+        const attributesTable = document.createElement('div');
+        attributesTable.innerHTML = `
+            <h5 class="mt-4">Product Specifications</h5>
+            <table class="table table-striped">
+                <tbody id="attributesTableBody"></tbody>
+            </table>
+        `;
+        additionalInfo.appendChild(attributesTable);
+        
+        const tableBody = attributesTable.querySelector('#attributesTableBody');
+        product.attributes.forEach(attr => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <th scope="row">${attr.name || 'Attribute'}</th>
+                <td>${attr.value || 'Value'}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+    
+    // Update UI based on stock
+    if (product.in_stock === false) {
+        document.getElementById('addToCartBtn').disabled = true;
+        document.getElementById('addToCartBtn').textContent = 'Out of Stock';
+    }
+}
+
+    function loadRelatedProducts(category, currentProductId) {
+        console.log("Loading related products for category:", category);
+        
+        if (!category) {
+            console.warn("No category provided for related products");
+            document.getElementById('relatedProductsSection').classList.add('d-none');
+            return;
+        }
+        
+        const relatedSection = document.getElementById('relatedProductsSection');
+        relatedSection.classList.add('d-none');
+        
+        const apiUrl = `/api/frontend/related-products?category=${encodeURIComponent(category)}&product_id=${currentProductId}&limit=4`;
+        console.log("Fetching related products from:", apiUrl);
+        
+        fetch(apiUrl)
+            .then(response => {
+                console.log("Related products API response status:", response.status);
+                if (!response.ok) {
+                    throw new Error(`Failed to load related products (Status: ${response.status})`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Related products data:", data);
+                
+                if (data.status === 'success' && data.data && data.data.length > 0) {
+                    renderRelatedProducts(data.data);
+                    relatedSection.classList.remove('d-none');
+                } else {
+                    console.log("No related products found or empty data");
+                    relatedSection.classList.add('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading related products:', error);
+                relatedSection.classList.add('d-none');
+            });
+    }
+
+    function renderRelatedProducts(products) {
+    console.log("Rendering related products:", products);
+    
+    const container = document.getElementById('relatedProducts');
+    container.innerHTML = '';
+    
+    products.forEach(product => {
+        // Debug the image structure for each product
+        console.log(`Product ${product.product_id} image data:`, {
+            images: product.images,
+            image_url: product.image_url,
+            full_product: product
+        });
+        
+        const col = document.createElement('div');
+        col.className = 'col-lg-3 col-md-6 mb-4';
+        
+        const price = product.has_promotion ? product.discounted_price : product.price;
+        
+        // Prioritize using the existing image_url which actually works based on the logs
+        let imageUrl = '/api/placeholder/200/200?text=No+Image';
+        
+        if (product.image_url) {
+            // This is the format that's working in your system
+            imageUrl = `/api/storage/serve/${product.image_url}`;
+            console.log(`Using image_url for product ${product.product_id}:`, product.image_url);
+        } else if (product.images && product.images.length > 0) {
+            const imagePath = product.images[0].path || product.images[0].image_path;
+            if (imagePath) {
+                imageUrl = `/api/storage/serve/${imagePath}`;
+                console.log(`Using image path for product ${product.product_id}:`, imagePath);
+            }
+        }
+        
+        col.innerHTML = `
+            <div class="card h-100 shadow-sm">
+                <div class="position-relative">
+                    ${product.has_promotion ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Sale</span>' : ''}
+                    <a href="/product/${product.product_id}">
+                        <img src="${imageUrl}" class="card-img-top p-3" alt="${product.name || 'Product'}" 
+                             onerror="this.onerror=null; this.src='/api/placeholder/200/200?text='+encodeURIComponent('${product.name || 'No Image'}');">
+                    </a>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">
+                        <a href="/product/${product.product_id}" class="text-decoration-none text-dark">
+                            ${product.name || 'Product'}
+                        </a>
+                    </h5>
+                    <div class="mt-auto">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                ${product.has_promotion ? 
+                                    `<span class="text-decoration-line-through text-muted me-2">$${(product.price || 0).toFixed(2)}</span>
+                                    <span class="fw-bold text-primary">$${(price || 0).toFixed(2)}</span>` : 
+                                    `<span class="fw-bold text-primary">$${(price || 0).toFixed(2)}</span>`
+                                }
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary related-add-to-cart" 
+                                data-product-id="${product.product_id}">
+                                <i class="bi bi-cart-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(col);
+        
+        // Add event listener for the add to cart button
+        const addToCartBtn = col.querySelector('.related-add-to-cart');
+        if (addToCartBtn) {
+            addToCartBtn.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const productId = this.getAttribute('data-product-id');
+                
+                // Use the addToCart function from main.js if it exists
+                if (typeof addToCart === 'function') {
+                    addToCart(productId, 1);
+                } else {
+                    // Fallback implementation
+                    fallbackAddToCart(productId, 1);
+                }
+            });
+        }
+    });
+}
+    // Fallback add to cart function if main.js function is not available
+    function fallbackAddToCart(productId, quantity) {
+        console.log('Using fallback addToCart function for:', productId, 'quantity:', quantity);
+        
+        const token = localStorage.getItem('ecomm_auth_token');
+        
+        if (!token) {
+            // Show login modal if not logged in
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+            return;
+        }
+        
+        // Get CSRF token if your application uses it
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        // Try the newer API first
+        fetch('/api/cart/items', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-CSRF-TOKEN': csrfToken || ''
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                quantity: quantity
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                // If new API fails, try the old one
+                return fetch('/api/frontend/cart/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken || ''
+                    },
+                    body: JSON.stringify({
+                        product_id: productId,
+                        quantity: quantity
+                    })
+                });
+            }
+            return response;
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                fallbackShowToast('Product added to cart!', 'success');
+                fallbackUpdateCartCounter(data.cart?.item_count || data.data?.cart_count);
+            } else if (data.status === 'error' && data.message === 'not_authenticated') {
+                const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                loginModal.show();
+            } else {
+                fallbackShowToast(data.message || 'Failed to add product to cart', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error adding to cart:', error);
+            fallbackShowToast('Failed to add product to cart. Please try again.', 'error');
+        });
+    }
+
+    // Fallback show toast function if main.js function is not available
+    function fallbackShowToast(message, type = 'info') {
+        // Use the showToast function from main.js if it exists
+        if (typeof showToast === 'function') {
+            return showToast(message, type);
+        }
+        
+        // Check if toast container exists, if not create it
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
+            toastContainer.style.zIndex = '1050';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Create toast
+        const toastId = 'toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `toast align-items-center border-0 ${type === 'error' ? 'bg-danger' : type === 'success' ? 'bg-success' : 'bg-primary'} text-white`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        // Add toast to container
+        toastContainer.appendChild(toast);
+        
+        // Initialize and show toast with Bootstrap if available
+        if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: true,
+                delay: 3000
+            });
+            bsToast.show();
+            
+            // Remove toast after it's hidden
+            toast.addEventListener('hidden.bs.toast', function() {
+                toast.remove();
+            });
+        } else {
+            // Fallback if Bootstrap is not available
+            toast.classList.add('show');
+            
+            // Auto-hide toast after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.remove();
+                }, 500);
+            }, 3000);
+            
+            // Add close button functionality
+            const closeButton = toast.querySelector('.btn-close');
+            closeButton.addEventListener('click', function() {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.remove();
+                }, 500);
+            });
+        }
+    }
+
+    // Fallback update cart counter function if main.js function is not available
+    function fallbackUpdateCartCounter(count) {
+        // Use the updateCartCounter or updateCartCount function from main.js if it exists
+        if (typeof updateCartCounter === 'function') {
+            return updateCartCounter(count);
+        } else if (typeof updateCartCount === 'function') {
+            return updateCartCount(count);
+        }
+        
+        // Try both possible cart counter elements
+        const cartCountElement = document.getElementById('cartCount') || document.getElementById('cartCounter');
+        
+        if (cartCountElement) {
+            cartCountElement.textContent = count || '0';
+            
+            // Add animation effect
+            cartCountElement.classList.add('cart-update-animation');
+            setTimeout(() => {
+                cartCountElement.classList.remove('cart-update-animation');
+            }, 1000);
+        }
+    }
+
+    // Add error handling for images
+    document.addEventListener('error', function(e) {
+        if (e.target.tagName === 'IMG') {
+            console.error('Image failed to load:', e.target.src);
+            // Create fallback based on image size
+            const width = e.target.width || 200;
+            const height = e.target.height || 200;
+            if (!e.target.src.includes('/api/placeholder/')) {
+                e.target.src = `/api/placeholder/${width}/${height}?text=Image+Error`;
+            }
+        }
+    }, true);
+</script>
+
+<style>
+    /* Product Detail Styles */
+    .thumbnail-item {
+        transition: transform 0.2s;
+        border: 2px solid transparent;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .thumbnail-item:hover {
+        transform: scale(1.1);
+        border-color: #0d6efd;
+    }
+    
+    .cart-update-animation {
+        animation: pulse 1s;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.3); }
+        100% { transform: scale(1); }
+    }
+    
+    /* Main product image styles */
+    #mainProductImage {
+        max-height: 400px;
+        width: auto;
+        object-fit: contain;
+        transition: transform 0.3s ease;
+    }
+    
+    #mainProductImage:hover {
+        transform: scale(1.05);
+    }
+    
+    /* Product description styles */
+    #productDescription {
+        line-height: 1.6;
+    }
+    
+    /* Related products styles */
+    #relatedProducts .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    #relatedProducts .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    
+    #relatedProducts .card-img-top {
+        height: 180px;
+        object-fit: contain;
+    }
+    
+    #relatedProducts .card-title {
+        height: 48px;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    /* Quantity input styles */
+    #quantityInput {
+        width: 50px;
+        text-align: center;
+    }
+    
+    /* Toast styles */
+    #toastContainer {
+        z-index: 1100;
+    }
+    
+    .toast {
+        opacity: 1 !important;
+    }
+    
+    /* Animation for highlighting cart count */
+    @keyframes highlight {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.5); background-color: #198754; }
+        100% { transform: scale(1); }
+    }
+    
+    .highlight {
+        animation: highlight 1s;
+    }
+    
+    /* Stock status styles */
+    #stockStatus {
+        font-weight: 500;
+    }
+    
+    /* Price display styles */
+    #discountedPrice .badge {
+        padding: 0.4em 0.65em;
+    }
+    
+    /* Add to cart button hover effect */
+    #addToCartBtn {
+        transition: all 0.3s ease;
+    }
+    
+    #addToCartBtn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Breadcrumb styles */
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0.5rem 0;
+    }
+    
+    /* Login modal styles */
+    #loginModal .modal-header {
+        border-bottom: 3px solid #0d6efd;
+    }
+</style>
+{% endblock %}

@@ -3,7 +3,9 @@ import os
 import logging
 import requests
 from flask_cors import CORS
-
+from flask import send_file
+import io
+from PIL import Image, ImageDraw, ImageFont
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -771,6 +773,259 @@ def health_check():
     except Exception as e:
         logger.error(f"Error in health_check route: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# Add these routes to app.py if they don't already exist
+# Add these routes to app.py after the existing product-related routes
+
+# Add this route to app.py to handle product detail API requests
+
+@app.route('/product/<product_id>')
+def product_detail_page(product_id):
+    """Render the product detail page"""
+    return render_template('product-detail.html', product_id=product_id)
+
+@app.route('/api/frontend/product/<product_id>')
+def get_frontend_product(product_id):
+    """Get detailed product information with images, manufacturer, and promotions for frontend"""
+    try:
+        logger.info(f"Fetching product data for ID: {product_id}")
+        
+        # Fetch product from storage service
+        storage_response = requests.get(f"{STORAGE_SERVICE_URL}/products/{product_id}")
+        if storage_response.status_code != 200:
+            return jsonify({
+                "status": "error", 
+                "message": f"Product not found: {product_id}"
+            }), 404
+        
+        product_data = storage_response.json()
+        product = product_data.get('data', {})
+        
+        # Set has_promotion to false by default
+        product['has_promotion'] = False
+        
+        # Fetch all active promotions to find one for this product
+        promo_response = requests.get(f"{PROMOTION_SERVICE_URL}/promotions/active")
+        
+        # If promotion exists for this product, add it to the response
+        if promo_response.status_code == 200:
+            promotions_data = promo_response.json()
+            
+            for promotion in promotions_data.get('data', []):
+                if promotion.get('product_id') == product_id:
+                    # Found a promotion for this product
+                    product['promotion'] = promotion
+                    product['has_promotion'] = True
+                    product['discounted_price'] = promotion.get('discounted_price')
+                    break
+        
+        # Double-check: if product has discounted_price but has_promotion isn't set, fix it
+        if 'discounted_price' in product and product.get('price') and product['discounted_price'] < product['price']:
+            product['has_promotion'] = True
+            logger.info(f"Fixed has_promotion flag for product {product_id} based on price difference")
+        
+        # Ensure manufacturer field is included in the response
+        if 'manufacturer' not in product:
+            logger.warning(f"Product {product_id} does not have manufacturer information")
+            product['manufacturer'] = None
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Retrieved product {product_id}",
+            "data": product
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in get_frontend_product route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/frontend/related-products')
+def get_related_products():
+    """Get related products based on category"""
+    try:
+        category = request.args.get('category')
+        product_id = request.args.get('product_id')  # Current product ID to exclude
+        limit = request.args.get('limit', 4, type=int)
+        
+        if not category:
+            return jsonify({
+                "status": "error", 
+                "message": "Category parameter is required"
+            }), 400
+        
+        # Fetch products from the same category
+        storage_response = requests.get(f"{STORAGE_SERVICE_URL}/products", 
+                                      params={"category": category})
+        
+        if storage_response.status_code != 200:
+            return jsonify({
+                "status": "error", 
+                "message": f"Error fetching related products: {storage_response.text}"
+            }), 500
+        
+        products_data = storage_response.json()
+        products = products_data.get('data', [])
+        
+        # Filter out the current product
+        if product_id:
+            products = [p for p in products if str(p.get('product_id')) != str(product_id)]
+        
+        # Limit the number of products
+        products = products[:limit]
+        
+        # Fetch promotions to enrich product data
+        promo_response = requests.get(f"{PROMOTION_SERVICE_URL}/promotions/active")
+        
+        promotion_map = {}
+        if promo_response.status_code == 200:
+            promotions_data = promo_response.json()
+            for promotion in promotions_data.get('data', []):
+                p_id = promotion.get('product_id')
+                if p_id:
+                    # Keep the best promotion (lowest price)
+                    if p_id in promotion_map:
+                        current_price = promotion_map[p_id].get('discounted_price', float('inf'))
+                        new_price = promotion.get('discounted_price', float('inf'))
+                        if new_price < current_price:
+                            promotion_map[p_id] = promotion
+                    else:
+                        promotion_map[p_id] = promotion
+        
+        # Enrich products with promotion information
+        for product in products:
+            p_id = product.get('product_id')
+            if p_id in promotion_map:
+                product['promotion'] = promotion_map[p_id]
+                product['has_promotion'] = True
+                product['discounted_price'] = promotion_map[p_id].get('discounted_price')
+            else:
+                product['has_promotion'] = False
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Retrieved {len(products)} related products",
+            "data": products
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in get_related_products route: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Add this to your app.py
+
+@app.route('/api/placeholder/<width>/<height>')
+def placeholder_image(width, height):
+    """Generate a simple placeholder image of the specified dimensions"""
+    try:
+        width = int(width)
+        height = int(height)
+        text = request.args.get('text', f"{width} x {height}")
+        
+        # Generate a simple SVG placeholder - doesn't require PIL
+        svg = f'''
+        <svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#f0f0f0"/>
+            <text x="50%" y="50%" font-family="Arial" font-size="14" fill="#888888"
+                  text-anchor="middle" dominant-baseline="middle">
+                {text}
+            </text>
+        </svg>
+        '''
+        
+        return svg, 200, {'Content-Type': 'image/svg+xml'}
+    except Exception as e:
+        logger.error(f"Error generating placeholder: {str(e)}")
+        return "Error generating placeholder", 500
+
+# Add this to your app.py to ensure the test images are created
+
+from PIL import Image, ImageDraw, ImageFont
+import os
+
+def create_test_images():
+    """Create test product images if they don't exist"""
+    try:
+        # Create static/images directory if it doesn't exist
+        os.makedirs('static/images', exist_ok=True)
+        
+        # Define test images
+        test_images = [
+            ('test1.jpg', 'Test 1'),
+            ('test2.jpg', 'Test 2'),
+            ('test3.jpg', 'Test 3')
+        ]
+        
+        # Create each test image if it doesn't exist
+        for filename, text in test_images:
+            filepath = os.path.join('static/images', filename)
+            
+            if not os.path.exists(filepath):
+                # Create a new image
+                img = Image.new('RGB', (400, 400), color=(240, 240, 240))
+                draw = ImageDraw.Draw(img)
+                
+                # Try to draw text
+                try:
+                    # Try to load a font, use default if not available
+                    try:
+                        font = ImageFont.truetype("arial.ttf", 40)
+                    except:
+                        font = ImageFont.load_default()
+                    
+                    # Draw text in center
+                    text_width, text_height = draw.textbbox((0, 0), text, font=font)[2:4]
+                    position = ((400 - text_width) // 2, (400 - text_height) // 2)
+                    draw.text(position, text, fill=(0, 0, 0), font=font)
+                    
+                    # Draw border
+                    draw.rectangle([0, 0, 399, 399], outline=(200, 200, 200))
+                except Exception as e:
+                    logger.warning(f"Error drawing text on test image: {e}")
+                
+                # Save the image
+                img.save(filepath, 'JPEG')
+                logger.info(f"Created test image: {filepath}")
+    except Exception as e:
+        logger.error(f"Error creating test images: {e}")
+
+# Call this function when the app starts
+create_test_images()
+
+# Also update the storage serve route to handle test images
+@app.route('/api/storage/serve/<path:filepath>')
+def serve_storage_file(filepath):
+    """Proxy image requests to the storage service or serve test images"""
+    try:
+        # Special handling for test images
+        if filepath in ['test1.jpg', 'test2.jpg', 'test3.jpg']:
+            # Try to serve from static folder
+            try:
+                return send_from_directory('static/images', filepath)
+            except Exception as e:
+                logger.warning(f"Error serving test image from static: {e}")
+                # Fallback to placeholder
+                return redirect(f"/api/placeholder/400/400?text={filepath}")
+        
+        # For other files, proxy to storage service
+        proxy_url = f"{STORAGE_SERVICE_URL}/storage/serve/{filepath}"
+        logger.info(f"Proxying request to: {proxy_url}")
+        
+        response = requests.get(proxy_url, stream=True)
+        
+        if response.status_code != 200:
+            logger.error(f"Storage service returned status code {response.status_code}: {response.text}")
+            return redirect(f"/api/placeholder/400/400?text=Not+Found"), 302
+            
+        # Return the image with the correct content type
+        return response.content, 200, {'Content-Type': response.headers.get('Content-Type', 'application/octet-stream')}
+    except Exception as e:
+        logger.error(f"Error serving storage file {filepath}: {e}")
+        return redirect(f"/api/placeholder/400/400?text=Error"), 302
+
+@app.route('/test-images/<filename>')
+def test_image(filename):
+    """Serve test images directly from static folder"""
+    return send_from_directory('static/images', filename)
 # Main entry point
 if __name__ == '__main__':
     # Get port from environment variable or use default

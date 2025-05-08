@@ -77,6 +77,7 @@ function loadCategories() {
 }
 
 // Function to create a product card with hover slideshow and loading bar
+// Function to create a product card with hover slideshow and loading bar
 function createProductCard(product) {
     const col = document.createElement('div');
     col.className = 'col-lg-4 col-md-6 mb-4';
@@ -105,9 +106,15 @@ function createProductCard(product) {
         imageList = product.data;
     }
     
+    // Generate product detail URL - this is the key addition for linking to product detail page
+    const productDetailUrl = `/product/${product.product_id}`;
+    
     if (imageList.length > 0) {
-        // Create container for the images
-        imageHTML = `<div class="product-image-container" id="images-${cardId}">`;
+        // Create container for the images with a link wrapper
+        imageHTML = `
+            <a href="${productDetailUrl}" class="product-link">
+                <div class="product-image-container" id="images-${cardId}">
+        `;
         
         // Add each image
         imageList.forEach((image, index) => {
@@ -127,25 +134,33 @@ function createProductCard(product) {
             imageHTML += `<div class="image-progress-container"><div class="image-progress-bar" id="progress-${cardId}"></div></div>`;
         }
         
-        imageHTML += '</div>';
+        imageHTML += '</div></a>';
     } else {
         // Fallback for products without images
         const imgSrc = product.image_url 
             ? `/api/storage/serve/${product.image_url}` 
             : 'https://placehold.co/300x300?text=No+Image';
             
-        imageHTML = `<img src="${imgSrc}" class="card-img-top" alt="${product.name || 'Product'}">`;
+        imageHTML = `
+            <a href="${productDetailUrl}" class="product-link">
+                <img src="${imgSrc}" class="card-img-top" alt="${product.name || 'Product'}">
+            </a>
+        `;
     }
     
     // Create the card HTML
     col.innerHTML = `
-        <div class="card h-100 product-card" id="${cardId}">
+        <div class="card h-100 product-card" id="${cardId}" data-product-id="${product.product_id}">
             <div class="position-relative">
                 ${imageHTML}
                 ${hasPromotion ? `<div class="badge bg-danger position-absolute top-0 end-0 m-2">SALE</div>` : ''}
             </div>
             <div class="card-body">
-                <h5 class="card-title">${product.name || ''}</h5>
+                <h5 class="card-title">
+                    <a href="${productDetailUrl}" class="text-decoration-none text-dark product-link">
+                        ${product.name || ''}
+                    </a>
+                </h5>
                 <p class="card-text text-truncate">${product.description || ''}</p>
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="price-container">
@@ -249,6 +264,23 @@ function createProductCard(product) {
                 event.stopPropagation();
                 addToCart(product.product_id);
             });
+        }
+        
+        // Make the card clickable (except for the add to cart button)
+        const card = document.getElementById(cardId);
+        if (card) {
+            card.addEventListener('click', function(event) {
+                // Don't navigate if clicking on the add to cart button
+                if (event.target.closest('.add-to-cart-btn')) {
+                    return;
+                }
+                
+                // Navigate to product detail page
+                window.location.href = productDetailUrl;
+            });
+            
+            // Make it look clickable
+            card.style.cursor = 'pointer';
         }
     }, 100);
     
