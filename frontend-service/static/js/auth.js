@@ -352,6 +352,7 @@ function loginSuccess(data) {
     
     // Close login modal
     loginModal.hide();
+    window.location.reload();
 }
 
 // Logout function
