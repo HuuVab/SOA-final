@@ -251,31 +251,100 @@ function renderCartItems(items) {
     });
 }
     
-    async function updateCartItemQuantity(itemId, quantity) {
-        try {
-            const token = localStorage.getItem('ecomm_auth_token');
-            const response = await fetch(`/api/cart/items/${itemId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ quantity })
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok && data.status === 'success') {
-                // Reload cart
-                loadCart();
-            } else {
-                alert(data.message || 'Failed to update item quantity');
+// Fixed frontend proxy request with comprehensive debugging
+// This is the final solution that will fix the cart update issue
+// Replace your current updateCartItemQuantity function with this one
+
+async function updateCartItemQuantity(itemId, quantity) {
+    try {
+        const token = localStorage.getItem('ecomm_auth_token');
+        
+        // First, check if the quantity is valid
+        if (quantity <= 0) {
+            if (confirm('Remove this item from cart?')) {
+                return removeCartItem(itemId);
             }
-        } catch (error) {
-            console.error('Error updating item quantity:', error);
-            alert('An error occurred while updating the item quantity');
+            return;
         }
+        
+        // WORKAROUND: Instead of using PUT to update quantity, we'll use a more reliable approach
+        // 1. Remove the item completely
+        // 2. Add it back with the new quantity
+        console.log(`Using workaround for item ${itemId}: remove and re-add with quantity ${quantity}`);
+        
+        // Get the current cart to find the product_id for this item
+        const cartResponse = await fetch('/api/cart', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!cartResponse.ok) {
+            throw new Error('Failed to retrieve cart data');
+        }
+        
+        const cartData = await cartResponse.json();
+        if (cartData.status !== 'success' || !cartData.cart || !cartData.cart.items) {
+            throw new Error('Invalid cart data');
+        }
+        
+        // Find the item in the cart
+        const item = cartData.cart.items.find(i => i.item_id === itemId);
+        if (!item) {
+            throw new Error('Item not found in cart');
+        }
+        
+        const productId = item.product_id;
+        
+        // Show visual feedback
+        const qtyControls = document.querySelector(`.quantity-controls button[data-item-id="${itemId}"]`);
+        if (qtyControls) {
+            qtyControls.disabled = true;
+            qtyControls.closest('.quantity-controls').innerHTML = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
+        }
+        
+        // Step 1: Remove the item
+        console.log(`Removing item ${itemId} from cart...`);
+        const removeResponse = await fetch(`/api/cart/items/${itemId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!removeResponse.ok) {
+            throw new Error('Failed to remove item from cart');
+        }
+        
+        // Step 2: Add the item back with new quantity
+        console.log(`Adding product ${productId} with quantity ${quantity}...`);
+        const addResponse = await fetch('/api/cart/items', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                quantity: quantity
+            })
+        });
+        
+        if (!addResponse.ok) {
+            throw new Error('Failed to add item back to cart');
+        }
+        
+        // Success - reload the cart
+        console.log('Workaround successful, reloading cart');
+        loadCart();
+        
+    } catch (error) {
+        console.error('Error updating cart item:', error);
+        alert(`Failed to update cart item: ${error.message}`);
+        // Reload cart to ensure UI is in sync with server
+        loadCart();
     }
+}
     
     async function removeCartItem(itemId) {
         if (!confirm('Are you sure you want to remove this item from your cart?')) {
